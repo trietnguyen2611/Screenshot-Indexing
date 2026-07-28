@@ -1,7 +1,6 @@
 import os
 import re
 import json
-import threading
 from flask import Flask, render_template, jsonify, request
 
 app = Flask(__name__)
@@ -35,23 +34,30 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/api/choose-folder", methods=["POST"])
-def choose_folder():
-    """Open native folder picker using tkinter (runs in main thread on macOS)."""
-    import tkinter as tk
-    from tkinter import filedialog
+@app.route("/api/browse", methods=["POST"])
+def browse_directory():
+    """List subdirectories at a given path for the web-based folder browser."""
+    data = request.get_json() or {}
+    path = data.get("path", os.path.expanduser("~"))
 
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes("-topmost", True)
-    folder = filedialog.askdirectory(title="Chọn thư mục chứa file screenshot")
-    root.destroy()
+    if not os.path.isdir(path):
+        return jsonify({"ok": False, "message": "Đường dẫn không tồn tại"})
 
-    if not folder:
-        return jsonify({"ok": False, "message": "Không có thư mục nào được chọn"})
-
-    state["folder_path"] = folder
-    return jsonify({"ok": True, "folder": folder})
+    try:
+        entries = []
+        for name in sorted(os.listdir(path)):
+            full = os.path.join(path, name)
+            if os.path.isdir(full) and not name.startswith("."):
+                entries.append(name)
+        parent = os.path.dirname(path)
+        return jsonify({
+            "ok": True,
+            "current": path,
+            "parent": parent if parent != path else None,
+            "dirs": entries
+        })
+    except PermissionError:
+        return jsonify({"ok": False, "message": "Không có quyền truy cập"})
 
 
 @app.route("/api/scan", methods=["POST"])
