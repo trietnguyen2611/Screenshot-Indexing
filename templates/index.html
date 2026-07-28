@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshot Index</title>
+    <meta name="description" content="Đổi tên đồng loạt file screenshot theo thứ tự thời gian">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div>
+            <h1 class="header-title">Screenshot Index</h1>
+        </div>
+        <span class="header-subtitle">Đổi tên đồng loạt file screenshot</span>
+    </header>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Main -->
+    <main class="main">
+
+        <!-- Section: Folder -->
+        <section class="section">
+            <div class="section-header">
+                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span class="section-title">Thư mục</span>
+            </div>
+            <div class="card">
+                <div class="folder-row">
+                    <div id="folder-display" class="folder-display">
+                        <svg class="folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        <span id="folder-path" class="folder-path">Chưa chọn thư mục...</span>
+                    </div>
+                    <div class="folder-buttons">
+                        <button id="btn-choose-folder" class="btn btn-secondary" onclick="chooseFolder()">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            Chọn
+                        </button>
+                        <button class="btn btn-utility" onclick="refreshFiles()">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="23 4 23 10 17 10"/>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                            </svg>
+                            Làm mới
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Range -->
+        <section class="section">
+            <div class="section-header">
+                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="4" y1="9" x2="20" y2="9"/>
+                    <line x1="4" y1="15" x2="20" y2="15"/>
+                    <line x1="10" y1="3" x2="8" y2="21"/>
+                    <line x1="16" y1="3" x2="14" y2="21"/>
+                </svg>
+                <span class="section-title">Phạm vi đánh số</span>
+            </div>
+            <div class="card">
+                <div class="range-row">
+                    <div class="range-group">
+                        <span class="range-label">Từ</span>
+                        <input id="input-start" type="number" class="range-input" placeholder="1" min="0">
+                    </div>
+                    <span class="range-dash">—</span>
+                    <div class="range-group">
+                        <span class="range-label">Đến</span>
+                        <input id="input-end" type="number" class="range-input" placeholder="20" min="0">
+                    </div>
+                    <div class="range-actions">
+                        <button class="btn btn-utility" onclick="preview()">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            Xem trước
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: File List -->
+        <section class="section">
+            <div class="section-header">
+                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6"/>
+                    <line x1="8" y1="12" x2="21" y2="12"/>
+                    <line x1="8" y1="18" x2="21" y2="18"/>
+                    <line x1="3" y1="6" x2="3.01" y2="6"/>
+                    <line x1="3" y1="12" x2="3.01" y2="12"/>
+                    <line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
+                <span class="section-title">Danh sách file</span>
+                <span id="file-count" class="section-badge"></span>
+            </div>
+
+            <!-- Table -->
+            <div id="table-wrapper" class="table-wrapper" style="display: none;">
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Tên gốc</th>
+                                <th>Giây</th>
+                                <th>Tên mới</th>
+                            </tr>
+                        </thead>
+                        <tbody id="file-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="card empty-state">
+                <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <div class="empty-state-title">Chưa có file nào</div>
+                <div class="empty-state-text">Chọn thư mục chứa các file screenshot để bắt đầu</div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Bar -->
+    <footer class="bottom-bar">
+        <div class="status-text">
+            <span id="status-dot" class="status-dot"></span>
+            <span id="status-text">Chưa chọn thư mục</span>
+        </div>
+        <div class="bottom-actions">
+            <button class="btn btn-utility" onclick="refreshFiles()">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+                Làm mới
+            </button>
+            <button id="btn-rename" class="btn btn-primary" onclick="renameFiles()">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Đổi tên
+            </button>
+        </div>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
