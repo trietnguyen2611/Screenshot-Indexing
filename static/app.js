@@ -1,7 +1,11 @@
 // ── Screenshot Index — Frontend Logic ───────────────────────────────
 
 const API = {
-    chooseFolder: () => fetch('/api/choose-folder', { method: 'POST' }).then(r => r.json()),
+    browse: (path) => fetch('/api/browse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path })
+    }).then(r => r.json()),
     scanFiles: (folder) => fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -18,6 +22,7 @@ const API = {
 
 let currentFolder = '';
 let currentFiles = [];
+let browserCurrentPath = '';
 
 // ── DOM Helpers ─────────────────────────────────────────────────────
 
@@ -44,37 +49,83 @@ function setStatus(text, type = '') {
     if (type) statusDot.classList.add(type);
 }
 
-// ── Folder ──────────────────────────────────────────────────────────
+// ── Folder Input ────────────────────────────────────────────────────
 
-async function chooseFolder() {
-    const btn = $('#btn-choose-folder');
-    btn.disabled = true;
+function loadFolder() {
+    const input = $('#folder-input');
+    const folder = input.value.trim();
 
-    try {
-        const res = await API.chooseFolder();
-        if (res.ok) {
-            currentFolder = res.folder;
-            updateFolderDisplay(res.folder);
-            await scanFiles();
-        }
-    } catch (err) {
-        showToast('Lỗi khi chọn thư mục');
-    } finally {
-        btn.disabled = false;
+    if (!folder) {
+        showToast('Vui lòng nhập đường dẫn thư mục');
+        return;
+    }
+
+    currentFolder = folder;
+    scanFiles();
+}
+
+// ── Folder Browser Modal ────────────────────────────────────────────
+
+async function openBrowser() {
+    const modal = $('#folder-modal');
+    modal.style.display = 'flex';
+    const startPath = currentFolder || '';
+    await browseTo(startPath || undefined);
+}
+
+function closeBrowser() {
+    $('#folder-modal').style.display = 'none';
+}
+
+function closeBrowserOutside(event) {
+    if (event.target === event.currentTarget) {
+        closeBrowser();
     }
 }
 
-function updateFolderDisplay(folder) {
-    const display = $('#folder-display');
-    const pathEl = $('#folder-path');
+async function browseTo(path) {
+    try {
+        const res = await API.browse(path);
+        if (!res.ok) {
+            showToast(res.message);
+            return;
+        }
 
-    if (folder) {
-        display.classList.add('has-folder');
-        pathEl.textContent = folder;
-    } else {
-        display.classList.remove('has-folder');
-        pathEl.textContent = 'Chưa chọn thư mục...';
+        browserCurrentPath = res.current;
+        $('#modal-current-path').textContent = res.current;
+        $('#btn-parent').style.display = res.parent ? 'inline-flex' : 'none';
+
+        const list = $('#modal-dir-list');
+        if (res.dirs.length === 0) {
+            list.innerHTML = '<div class="modal-empty">Không có thư mục con</div>';
+        } else {
+            list.innerHTML = res.dirs.map(dir => `
+                <div class="dir-item" onclick="browseTo('${(res.current + '/' + dir).replace(/'/g, "\\'")}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    ${dir}
+                </div>
+            `).join('');
+        }
+    } catch (err) {
+        showToast('Lỗi khi duyệt thư mục');
     }
+}
+
+async function browseParent() {
+    const res = await API.browse(browserCurrentPath);
+    if (res.ok && res.parent) {
+        await browseTo(res.parent);
+    }
+}
+
+function selectFolder() {
+    currentFolder = browserCurrentPath;
+    $('#folder-input').value = browserCurrentPath;
+    closeBrowser();
+    scanFiles();
 }
 
 // ── Scan ────────────────────────────────────────────────────────────
@@ -239,6 +290,12 @@ async function renameFiles() {
         `;
     }
 }
+
+// ── Keyboard shortcut: Escape to close modal ────────────────────────
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeBrowser();
+});
 
 // ── Init ────────────────────────────────────────────────────────────
 

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Screenshot Index</title>
+    <title>Screenshot Indexing</title>
     <meta name="description" content="Đổi tên đồng loạt file screenshot theo thứ tự thời gian">
     <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -43,6 +43,7 @@
                         </svg>
                         <input id="folder-input" type="text" class="folder-input"
                             placeholder="Nhập hoặc dán đường dẫn thư mục..."
+                            onchange="loadFolder()"
                             onkeydown="if(event.key==='Enter') loadFolder()">
                     </div>
                     <div class="folder-buttons">
@@ -52,14 +53,6 @@
                                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                             </svg>
                             Duyệt
-                        </button>
-                        <button class="btn btn-utility" onclick="loadFolder()">
-                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="23 4 23 10 17 10" />
-                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                            </svg>
-                            Tải
                         </button>
                     </div>
                 </div>
@@ -86,7 +79,7 @@
                             stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="15 18 9 12 15 6" />
                         </svg>
-                        Lên
+                        Trở về
                     </button>
                 </div>
                 <div class="modal-list" id="modal-dir-list"></div>
@@ -135,7 +128,7 @@
         </section>
 
         <!-- Section: File List -->
-        <section class="section">
+        <section class="section section-file-list">
             <div class="section-header">
                 <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round">
