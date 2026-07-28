@@ -6,7 +6,7 @@ Giao diện được thiết kế theo chuẩn ngôn ngữ thiết kế của Ap
 
 ---
 
-## Tính năng chính
+## 1. Các tính năng chính
 
 - **Sắp xếp tự động**: Tự động sắp xếp các file screenshot từ sớm nhất đến muộn nhất dựa vào thời gian chụp.
 - **Đánh số tùy chỉnh**: Nhập phạm vi số bắt đầu và số kết thúc để đổi tên hàng loạt.
@@ -16,32 +16,26 @@ Giao diện được thiết kế theo chuẩn ngôn ngữ thiết kế của Ap
 
 ---
 
-## Yêu cầu hệ thống
+## 2. Cài đặt và Chạy ứng dụng
 
-- Python 3.8+
-
----
-
-## Cài đặt và Chạy ứng dụng
-
-1. **Khởi tạo môi trường ảo và cài đặt thư viện**:
+Bước 1. **Khởi tạo môi trường ảo và cài đặt thư viện**:
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
    ```
 
-2. **Chạy ứng dụng**:
+Bước 2. **Chạy ứng dụng**:
    ```bash
    python app.py
    ```
 
-3. **Truy cập giao diện web**:
-   Mở trình duyệt tại địa chỉ: [http://localhost:5050](http://localhost:5050)
+Bước 3. **Truy cập giao diện web**:
+   Mở trình duyệt tại địa chỉ: [http://localhost:5050]
 
 ---
 
-## Cấu trúc dự án
+## 3. Cấu trúc dự án
 
 ```
 screenshot-index/
@@ -51,6 +45,6 @@ screenshot-index/
 ├── templates/
 │   └── index.html      # Giao diện HTML
 └── static/
-    ├── style.css       # CSS thiết kế theo Apple Design System
-    └── app.js          # Logic xử lý phía frontend
+    ├── style.css       # CSS thiết kế giao diện
+    └── app.js          # Logic xử lý frontend
 ```
