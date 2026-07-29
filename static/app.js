@@ -376,12 +376,20 @@ function initResizer() {
 
     if (!container || !sidebar || !resizer) return;
 
+    const getMinWidth = () => {
+        const containerWidth = container.getBoundingClientRect().width;
+        return Math.max(260, Math.round(containerWidth * 0.25));
+    };
+
     // Restore saved sidebar width
     const savedWidth = localStorage.getItem('sidebar_width');
+    const minWidth = getMinWidth();
     if (savedWidth) {
         const parsed = parseInt(savedWidth, 10);
-        if (!isNaN(parsed) && parsed >= 220 && parsed <= 600) {
+        if (!isNaN(parsed) && parsed >= minWidth && parsed <= 650) {
             sidebar.style.width = `${parsed}px`;
+        } else {
+            sidebar.style.width = `${minWidth}px`;
         }
     }
 
@@ -406,10 +414,11 @@ function initResizer() {
         if (!isDragging) return;
         const deltaX = e.clientX - startX;
         const containerWidth = container.getBoundingClientRect().width;
-        const maxAllowed = Math.min(600, containerWidth - 300);
+        const minAllowed = Math.max(260, Math.round(containerWidth * 0.25)); // Limit at 2.5:7.5 ratio (min 25%)
+        const maxAllowed = Math.min(650, containerWidth - 350);
         let newWidth = startWidth + deltaX;
 
-        newWidth = Math.max(240, Math.min(newWidth, maxAllowed));
+        newWidth = Math.max(minAllowed, Math.min(newWidth, maxAllowed));
         sidebar.style.width = `${newWidth}px`;
     };
 
@@ -547,6 +556,27 @@ document.addEventListener('keydown', (e) => {
         closeImageModal();
     }
 });
+
+// ── Theme Switching ─────────────────────────────────────────────────
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    const target = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', target);
+    localStorage.setItem('user_theme', target);
+    showToast(`Đã chuyển sang ${target === 'dark' ? 'Giao diện Tối' : 'Giao diện Sáng'}`);
+}
+
+function initTheme() {
+    const saved = localStorage.getItem('user_theme');
+    if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    }
+}
+
+initTheme();
 
 // ── Init ────────────────────────────────────────────────────────────
 
