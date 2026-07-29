@@ -23,6 +23,7 @@ const API = {
 let currentFolder = '';
 let currentFiles = [];
 let browserCurrentPath = '';
+let currentImageIndex = -1;
 
 // ── DOM Helpers ─────────────────────────────────────────────────────
 
@@ -52,9 +53,11 @@ function setStatus(text, type = '') {
     const statusText = $('#status-text');
     const statusDot = $('#status-dot');
 
-    statusText.textContent = text;
-    statusDot.className = 'status-dot';
-    if (type) statusDot.classList.add(type);
+    if (statusText) statusText.textContent = text;
+    if (statusDot) {
+        statusDot.className = 'status-dot';
+        if (type) statusDot.classList.add(type);
+    }
 }
 
 // ── Folder Input ────────────────────────────────────────────────────
@@ -74,15 +77,28 @@ function loadFolder() {
 
 // ── Folder Browser Modal ────────────────────────────────────────────
 
+function closeModalWithAnimation(modal, callback) {
+    if (!modal || modal.style.display === 'none' || modal.classList.contains('closing')) return;
+
+    modal.classList.add('closing');
+    setTimeout(() => {
+        modal.style.display = 'none';
+        modal.classList.remove('closing');
+        if (callback) callback();
+    }, 190);
+}
+
 async function openBrowser() {
     const modal = $('#folder-modal');
+    modal.classList.remove('closing');
     modal.style.display = 'flex';
     const startPath = currentFolder || '';
     await browseTo(startPath || undefined);
 }
 
 function closeBrowser() {
-    $('#folder-modal').style.display = 'none';
+    const modal = $('#folder-modal');
+    closeModalWithAnimation(modal);
 }
 
 function closeBrowserOutside(event) {
@@ -176,6 +192,22 @@ async function refreshFiles() {
 
 // ── Table ───────────────────────────────────────────────────────────
 
+function escapeAttr(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function handleRowClick(tr) {
+    const filename = tr.getAttribute('data-filename');
+    if (filename) {
+        openImageModal(filename);
+    }
+}
+
 function renderTable(files, startNum = null) {
     const tbody = $('#file-tbody');
     const wrapper = $('#table-wrapper');
@@ -192,10 +224,19 @@ function renderTable(files, startNum = null) {
     tbody.innerHTML = files.map((f, i) => {
         const newName = startNum !== null ? `${startNum + i}.png` : '—';
         const newNameClass = startNum !== null ? '' : 'style="color: var(--color-ink-muted-48); font-weight: 400;"';
-        return `<tr>
+        const attrName = escapeAttr(f.name);
+        return `<tr class="clickable-row" data-filename="${attrName}" onclick="handleRowClick(this)" title="Click để xem trước ảnh">
             <td>${f.index}</td>
-            <td>${f.name}</td>
-            <td>${f.seconds}</td>
+            <td>
+                <div class="filename-cell">
+                    <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <span>${f.name}</span>
+                </div>
+            </td>
             <td ${newNameClass}>${newName}</td>
         </tr>`;
     }).join('');
@@ -237,9 +278,11 @@ function preview() {
     setStatus(`Xem trước: ${count} file sẽ được đổi tên`, 'info');
 }
 
-// ── Rename ──────────────────────────────────────────────────────────
+// ── Rename Confirmation Modal ───────────────────────────────────────
 
-async function renameFiles() {
+let pendingRenameData = null;
+
+function requestRename() {
     if (!currentFiles.length) {
         showToast('Chưa có file để đổi tên');
         return;
@@ -261,12 +304,37 @@ async function renameFiles() {
     const totalNumbers = endNum - startNum + 1;
     const count = Math.min(currentFiles.length, totalNumbers);
 
-    // Confirmation
-    if (!confirm(
-        `Bạn có chắc muốn đổi tên ${count} file?\n\n` +
-        `Từ: ${currentFiles[0].name}\n  →  ${startNum}.png\n\n` +
-        `Đến: ${currentFiles[count - 1].name}\n  →  ${startNum + count - 1}.png`
-    )) return;
+    pendingRenameData = { startNum, endNum, count };
+
+    $('#confirm-count-text').textContent = `Bạn có chắc chắn muốn đổi tên ${count} file?`;
+    $('#confirm-first-old').textContent = currentFiles[0].name;
+    $('#confirm-first-new').textContent = `${startNum}.png`;
+    $('#confirm-last-old').textContent = currentFiles[count - 1].name;
+    $('#confirm-last-new').textContent = `${startNum + count - 1}.png`;
+
+    const modal = $('#confirm-modal');
+    modal.classList.remove('closing');
+    modal.style.display = 'flex';
+}
+
+function closeConfirmModal() {
+    const modal = $('#confirm-modal');
+    closeModalWithAnimation(modal, () => {
+        pendingRenameData = null;
+    });
+}
+
+function closeConfirmOutside(event) {
+    if (event.target === event.currentTarget) {
+        closeConfirmModal();
+    }
+}
+
+async function executeRename() {
+    if (!pendingRenameData) return;
+
+    const { startNum, endNum } = pendingRenameData;
+    closeConfirmModal();
 
     const btn = $('#btn-rename');
     btn.disabled = true;
@@ -361,10 +429,123 @@ function initResizer() {
     resizer.addEventListener('pointerdown', onPointerDown);
 }
 
-// ── Keyboard shortcut: Escape to close modal ────────────────────────
+// ── Notes Persistence ───────────────────────────────────────────────
+
+function saveNotes() {
+    const input = $('#notes-input');
+    if (input) {
+        localStorage.setItem('user_temp_notes', input.value);
+    }
+}
+
+function loadNotes() {
+    const input = $('#notes-input');
+    if (input) {
+        const saved = localStorage.getItem('user_temp_notes');
+        if (saved !== null) {
+            input.value = saved;
+        }
+    }
+}
+
+// ── Image Preview Modal ─────────────────────────────────────────────
+
+function openImageModal(filenameOrIndex) {
+    if (!currentFiles || currentFiles.length === 0) return;
+
+    if (typeof filenameOrIndex === 'number') {
+        currentImageIndex = filenameOrIndex;
+    } else {
+        currentImageIndex = currentFiles.findIndex(f => f.name === filenameOrIndex);
+    }
+
+    if (currentImageIndex < 0) currentImageIndex = 0;
+    if (currentImageIndex >= currentFiles.length) currentImageIndex = currentFiles.length - 1;
+
+    updateImageModalContent();
+
+    const modal = $('#image-modal');
+    if (modal) {
+        modal.classList.remove('closing');
+        modal.style.display = 'flex';
+    }
+}
+
+function updateImageModalContent() {
+    if (currentImageIndex < 0 || currentImageIndex >= currentFiles.length) return;
+
+    const file = currentFiles[currentImageIndex];
+    const title = $('#image-modal-title');
+    const img = $('#image-modal-img');
+    const counter = $('#image-modal-counter');
+
+    if (title) title.textContent = file.name;
+    if (counter) counter.textContent = `${currentImageIndex + 1} / ${currentFiles.length}`;
+    if (img) img.src = `/api/image?name=${encodeURIComponent(file.name)}&t=${Date.now()}`;
+
+    // Highlight active row in table and scroll into view
+    const rows = $$('#file-tbody tr');
+    rows.forEach((row, idx) => {
+        if (idx === currentImageIndex) {
+            row.classList.add('active-preview-row');
+            row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else {
+            row.classList.remove('active-preview-row');
+        }
+    });
+}
+
+function navigateImage(step) {
+    if (!currentFiles || currentFiles.length === 0) return;
+
+    let newIndex = currentImageIndex + step;
+    if (newIndex < 0) newIndex = currentFiles.length - 1;
+    if (newIndex >= currentFiles.length) newIndex = 0;
+
+    currentImageIndex = newIndex;
+    updateImageModalContent();
+}
+
+function closeImageModal() {
+    const modal = $('#image-modal');
+    closeModalWithAnimation(modal, () => {
+        const img = $('#image-modal-img');
+        if (img) img.src = '';
+        const rows = $$('#file-tbody tr');
+        rows.forEach(row => row.classList.remove('active-preview-row'));
+    });
+}
+
+function closeImageOutside(event) {
+    if (event.target === event.currentTarget) {
+        closeImageModal();
+    }
+}
+
+// ── Keyboard shortcuts ──────────────────────────────────────────────
 
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeBrowser();
+    const imageModal = $('#image-modal');
+    const isImageModalOpen = imageModal && imageModal.style.display !== 'none' && !imageModal.classList.contains('closing');
+
+    if (isImageModalOpen) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            navigateImage(1);
+            return;
+        }
+        if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            navigateImage(-1);
+            return;
+        }
+    }
+
+    if (e.key === 'Escape') {
+        closeBrowser();
+        closeConfirmModal();
+        closeImageModal();
+    }
 });
 
 // ── Init ────────────────────────────────────────────────────────────
@@ -372,4 +553,5 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
     renderEmptyState();
     initResizer();
+    loadNotes();
 });

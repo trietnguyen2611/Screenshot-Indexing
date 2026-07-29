@@ -1,7 +1,7 @@
 import os
 import re
 import json
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 
 app = Flask(__name__)
 
@@ -10,6 +10,15 @@ state = {
     "folder_path": "",
     "files": []
 }
+
+
+@app.route("/api/image")
+def get_image():
+    filename = request.args.get("name")
+    folder = state.get("folder_path")
+    if not folder or not filename or not os.path.isdir(folder):
+        return "File not found", 404
+    return send_from_directory(folder, filename)
 
 
 def get_sort_key(filename):
