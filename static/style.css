@@ -92,6 +92,7 @@ body {
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
     background: rgba(255, 255, 255, 0.85);
+    flex-shrink: 0;
 }
 
 .header-title {
@@ -114,12 +115,80 @@ body {
 
 .main {
     flex: 1;
-    max-width: 980px;
+    max-width: 1600px;
     width: 100%;
     margin: 0 auto;
     padding: var(--space-md) var(--space-lg);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* ── Split Layout & Resizer ───────────────────────────────────────── */
+
+.split-container {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    overflow: hidden;
+}
+
+.sidebar-panel {
+    width: 350px;
+    min-width: 250px;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding-right: 4px;
+    flex-shrink: 0;
+}
+
+.resizer-handle {
+    width: 10px;
+    margin: 0 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: col-resize;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 20;
+    border-radius: var(--rounded-pill);
+    transition: background 0.15s ease;
+}
+
+.resizer-handle:hover,
+.resizer-handle.dragging {
+    background: rgba(0, 102, 204, 0.1);
+}
+
+.resizer-line {
+    width: 4px;
+    height: 36px;
+    background: var(--color-hairline);
+    border-radius: 2px;
+    transition: background 0.15s ease, height 0.15s ease;
+}
+
+.resizer-handle:hover .resizer-line,
+.resizer-handle.dragging .resizer-line {
+    background: var(--color-primary);
+    height: 48px;
+}
+
+.content-panel {
+    flex: 1;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding-left: 4px;
     overflow: hidden;
 }
 
@@ -186,7 +255,7 @@ body {
 
 .folder-row {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: var(--space-sm);
 }
 
@@ -386,9 +455,15 @@ body {
 
 .range-row {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: var(--space-sm);
-    flex-wrap: wrap;
+}
+
+.range-inputs {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-xs);
 }
 
 .range-group {
@@ -439,7 +514,13 @@ body {
 }
 
 .range-actions {
-    margin-left: auto;
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+}
+
+.range-actions .btn {
+    width: 100%;
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────── */
@@ -545,6 +626,7 @@ body {
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--color-hairline) transparent;
+    min-height: 0;
 }
 
 .table-scroll::-webkit-scrollbar {
@@ -572,6 +654,9 @@ thead {
 }
 
 thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     background: var(--color-canvas-parchment);
     font-size: 12px;
     font-weight: 600;
@@ -688,6 +773,7 @@ tbody tr:last-child td {
     bottom: 0;
     z-index: 100;
     min-height: 64px;
+    flex-shrink: 0;
 }
 
 .status-text {
@@ -782,15 +868,31 @@ tbody tr:last-child td {
 
 /* ── Responsive ──────────────────────────────────────────────────── */
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .header { padding: 0 var(--space-md); }
-    .main { padding: var(--space-lg) var(--space-md); }
+    .main { padding: var(--space-sm) var(--space-md); }
     .bottom-bar { padding: 12px var(--space-md); }
 
-    .folder-row { flex-direction: column; align-items: stretch; }
-    .folder-buttons { justify-content: flex-end; }
+    .split-container {
+        flex-direction: column;
+        overflow-y: auto;
+    }
 
-    .range-row { gap: var(--space-xs); }
-    .range-actions { margin-left: 0; margin-top: var(--space-xs); width: 100%; }
-    .range-actions .btn { width: 100%; }
+    .sidebar-panel {
+        width: 100% !important;
+        max-width: none;
+        min-width: 0;
+        padding-right: 0;
+    }
+
+    .resizer-handle {
+        display: none;
+    }
+
+    .content-panel {
+        padding-left: 0;
+        width: 100%;
+        flex: 1;
+        min-height: 400px;
+    }
 }

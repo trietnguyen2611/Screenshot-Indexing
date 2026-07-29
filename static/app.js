@@ -179,7 +179,7 @@ function renderTable(files, startNum = null) {
     }
 
     emptyState.style.display = 'none';
-    wrapper.style.display = 'block';
+    wrapper.style.display = 'flex';
 
     tbody.innerHTML = files.map((f, i) => {
         const newName = startNum !== null ? `${startNum + i}.png` : '—';
@@ -291,6 +291,68 @@ async function renameFiles() {
     }
 }
 
+// ── Resizer ─────────────────────────────────────────────────────────
+
+function initResizer() {
+    const container = $('#split-container');
+    const sidebar = $('#sidebar-panel');
+    const resizer = $('#resizer-handle');
+
+    if (!container || !sidebar || !resizer) return;
+
+    // Restore saved sidebar width
+    const savedWidth = localStorage.getItem('sidebar_width');
+    if (savedWidth) {
+        const parsed = parseInt(savedWidth, 10);
+        if (!isNaN(parsed) && parsed >= 220 && parsed <= 600) {
+            sidebar.style.width = `${parsed}px`;
+        }
+    }
+
+    let isDragging = false;
+    let startX = 0;
+    let startWidth = 0;
+
+    const onPointerDown = (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        startWidth = sidebar.getBoundingClientRect().width;
+
+        resizer.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+    };
+
+    const onPointerMove = (e) => {
+        if (!isDragging) return;
+        const deltaX = e.clientX - startX;
+        const containerWidth = container.getBoundingClientRect().width;
+        const maxAllowed = Math.min(600, containerWidth - 300);
+        let newWidth = startWidth + deltaX;
+
+        newWidth = Math.max(240, Math.min(newWidth, maxAllowed));
+        sidebar.style.width = `${newWidth}px`;
+    };
+
+    const onPointerUp = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        resizer.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+
+        localStorage.setItem('sidebar_width', sidebar.offsetWidth.toString());
+    };
+
+    resizer.addEventListener('pointerdown', onPointerDown);
+}
+
 // ── Keyboard shortcut: Escape to close modal ────────────────────────
 
 document.addEventListener('keydown', (e) => {
@@ -301,4 +363,5 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('DOMContentLoaded', () => {
     renderEmptyState();
+    initResizer();
 });
