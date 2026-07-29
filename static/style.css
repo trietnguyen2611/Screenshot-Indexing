@@ -307,6 +307,11 @@ body {
     flex-shrink: 0;
 }
 
+.folder-buttons .btn {
+    flex: 1;
+    min-height: 40px;
+}
+
 /* ── Modal ───────────────────────────────────────────────────────── */
 
 .modal-overlay {
