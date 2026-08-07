@@ -1087,31 +1087,29 @@ tbody tr:last-child td {
     box-shadow: 0 6px 20px rgba(0, 102, 204, 0.3);
 }
 
-/* ── Toast Notification ──────────────────────────────────────────── */
+/* ── Toast Notification (2D Flat Style) ──────────────────────────── */
 
 .toast {
     position: fixed;
     top: 20px;
     right: 24px;
     left: auto;
-    transform: translateY(-16px) scale(0.92);
+    transform: translateY(-12px);
     opacity: 0;
-    background: rgba(255, 255, 255, 0.82);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: #ffffff;
+    border: 1px solid var(--color-hairline);
     color: var(--color-ink);
     font-size: 15px;
     font-weight: 500;
     line-height: 1.4;
     letter-spacing: -0.2px;
-    padding: 14px 22px;
-    border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    padding: 12px 24px;
+    border-radius: 9999px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     z-index: 2000;
     pointer-events: none;
-    transition: all 0.35s cubic-bezier(0.34, 1.45, 0.64, 1);
-    min-width: 280px;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    min-width: 260px;
     max-width: 440px;
     display: flex;
     align-items: center;
@@ -1120,7 +1118,7 @@ tbody tr:last-child td {
 
 .toast.show {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
 }
 
 .toast-icon {
@@ -1128,6 +1126,22 @@ tbody tr:last-child td {
     height: 20px;
     color: var(--color-primary);
     flex-shrink: 0;
+}
+
+.toast-icon-success {
+    color: var(--color-success);
+}
+
+.toast-icon-error {
+    color: var(--color-error);
+}
+
+.toast-icon-warning {
+    color: var(--color-warning);
+}
+
+.toast-icon-info {
+    color: var(--color-primary);
 }
 
 /* ── Loading Spinner ─────────────────────────────────────────────── */
@@ -1279,9 +1293,10 @@ tbody tr:last-child td {
 }
 
 [data-theme="dark"] .toast {
-    background: rgba(44, 44, 46, 0.9);
-    color: #ffffff;
-    border-color: rgba(255, 255, 255, 0.15);
+    background: #252528;
+    color: #f5f5f7;
+    border: 1px solid #3a3a3c;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 /* ── Notes Header & Theme Toggle Button ──────────────────────────── */
