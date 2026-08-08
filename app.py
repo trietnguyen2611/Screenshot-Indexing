@@ -11,7 +11,6 @@ state = {
     "files": []
 }
 
-
 @app.route("/api/image")
 def get_image():
     filename = request.args.get("name")
