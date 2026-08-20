@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import base64
 import io
+import unicodedata
 
 # ── Apple Design Tokens ──────────────────────────────────────────────
 COLORS = {
@@ -557,7 +558,7 @@ class RenameApp:
     def _scan_files(self):
         self.screenshot_files = [
             f for f in os.listdir(self.folder_path)
-            if f.lower().startswith("screenshot") and f.lower().endswith(".png")
+            if is_screenshot_file(f)
         ]
         self.screenshot_files.sort(key=get_sort_key)
 
@@ -696,6 +697,20 @@ class RenameApp:
     def _set_status(self, text, color=None):
         self.lbl_status.config(text=text,
                                 fg=color or COLORS["ink_muted_48"])
+
+
+def is_screenshot_file(filename):
+    if not filename.lower().endswith('.png'):
+        return False
+    norm_nfc = unicodedata.normalize('NFC', filename).lower()
+    norm_nfd = unicodedata.normalize('NFD', filename).lower()
+    prefixes = ["screenshot", "ảnh màn hình", "anh man hinh"]
+    for pref in prefixes:
+        pref_nfc = unicodedata.normalize('NFC', pref).lower()
+        pref_nfd = unicodedata.normalize('NFD', pref).lower()
+        if norm_nfc.startswith(pref_nfc) or norm_nfd.startswith(pref_nfd):
+            return True
+    return False
 
 
 def get_sort_key(filename):

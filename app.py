@@ -2,6 +2,7 @@ import os
 import re
 import json
 import sys
+import unicodedata
 from flask import Flask, render_template, jsonify, request, send_from_directory
 
 if getattr(sys, 'frozen', False):
@@ -24,6 +25,20 @@ def get_image():
     if not folder or not filename or not os.path.isdir(folder):
         return "File not found", 404
     return send_from_directory(folder, filename)
+
+
+def is_screenshot_file(filename):
+    if not filename.lower().endswith('.png'):
+        return False
+    norm_nfc = unicodedata.normalize('NFC', filename).lower()
+    norm_nfd = unicodedata.normalize('NFD', filename).lower()
+    prefixes = ["screenshot", "ảnh màn hình", "anh man hinh"]
+    for pref in prefixes:
+        pref_nfc = unicodedata.normalize('NFC', pref).lower()
+        pref_nfd = unicodedata.normalize('NFD', pref).lower()
+        if norm_nfc.startswith(pref_nfc) or norm_nfd.startswith(pref_nfd):
+            return True
+    return False
 
 
 def get_sort_key(filename):
@@ -87,7 +102,7 @@ def scan_files():
 
     files = [
         f for f in os.listdir(folder)
-        if f.lower().startswith("screenshot") and f.lower().endswith(".png")
+        if is_screenshot_file(f)
     ]
     files.sort(key=get_sort_key)
 
