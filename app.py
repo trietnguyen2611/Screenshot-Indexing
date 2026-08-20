@@ -171,5 +171,5 @@ if __name__ == "__main__":
     flask_thread.start()
 
     # Open PyWebView window
-    webview.create_window("Screenshot Indexing", "http://127.0.0.1:5050", width=900, height=650)
+    webview.create_window("Screenshot Indexing", "http://127.0.0.1:5050", width=1200, height=800)
     webview.start()
