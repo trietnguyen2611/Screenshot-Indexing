@@ -1,9 +1,15 @@
 import os
 import re
 import json
+import sys
 from flask import Flask, render_template, jsonify, request, send_from_directory
 
-app = Flask(__name__)
+if getattr(sys, 'frozen', False):
+    template_folder = os.path.join(sys._MEIPASS, 'templates')
+    static_folder = os.path.join(sys._MEIPASS, 'static')
+    app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
+else:
+    app = Flask(__name__)
 
 # Store current state
 state = {
@@ -154,10 +160,16 @@ def rename_files():
 
 
 if __name__ == "__main__":
-    import webbrowser
-    print("\n  Screenshot Index")
-    print("  ─────────────────────────────")
-    print("  Mở trình duyệt: http://localhost:5050")
-    print("  Nhấn Ctrl+C để tắt\n")
-    webbrowser.open("http://localhost:5050")
-    app.run(host="127.0.0.1", port=5050, debug=False)
+    import threading
+    import webview
+
+    # Start Flask in a background thread
+    flask_thread = threading.Thread(
+        target=lambda: app.run(host="127.0.0.1", port=5050, debug=False, use_reloader=False)
+    )
+    flask_thread.daemon = True
+    flask_thread.start()
+
+    # Open PyWebView window
+    webview.create_window("Screenshot Indexing", "http://127.0.0.1:5050", width=900, height=650)
+    webview.start()
