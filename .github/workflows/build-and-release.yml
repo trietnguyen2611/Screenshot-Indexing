@@ -67,7 +67,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'latest' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'Screenshot Indexing Latest Release' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'Screenshot Indexing' }}
           files: |
             release/Screenshot-Indexing-macOS.dmg
             release/Screenshot-Indexing-macOS.zip
