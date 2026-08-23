@@ -6,10 +6,16 @@ on:
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
+  release:
+    types: [ published, created ]
   workflow_dispatch:
     inputs:
       version:
         description: 'Version tag (e.g. v1.2.1 - leave empty to auto-detect)'
+        required: false
+        default: ''
+      changelog:
+        description: 'Manual Changelog / Release Notes (Markdown supported)'
         required: false
         default: ''
 
@@ -34,6 +40,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,12 +49,15 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Determine Version
+      - name: Determine Version & Changelog
         id: get_version
         run: |
+          # 1. Determine Version
           if [ -n "${{ inputs.version }}" ]; then
             INPUT_VER="${{ inputs.version }}"
             [[ "$INPUT_VER" != v* ]] && VERSION="v${INPUT_VER}" || VERSION="${INPUT_VER}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
           elif [[ "$GITHUB_REF" =~ ^refs/tags/v ]]; then
             VERSION="${GITHUB_REF#refs/tags/}"
           else
@@ -58,6 +69,21 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "raw_version=${RAW_VERSION}" >> $GITHUB_OUTPUT
           echo "Building Version: ${VERSION} (${{ matrix.label }} - ${{ matrix.arch }})"
+
+          # 2. Determine Changelog Body
+          if [ -n "${{ inputs.changelog }}" ]; then
+            echo "body<<EOF" >> $GITHUB_OUTPUT
+            echo "${{ inputs.changelog }}" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          elif [[ "$GITHUB_REF" =~ ^refs/tags/v ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            TAG_MSG=$(git tag -l --format='%(contents)' "$TAG_NAME" 2>/dev/null | sed -e 's/[[:space:]]*$//')
+            if [ -n "$TAG_MSG" ] && [ "$TAG_MSG" != "$TAG_NAME" ]; then
+              echo "body<<EOF" >> $GITHUB_OUTPUT
+              echo "$TAG_MSG" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+            fi
+          fi
 
       - name: Install dependencies
         run: |
@@ -77,28 +103,23 @@ jobs:
             plutil -replace CFBundleVersion -string "$RAW_VER" "$PLIST_PATH"
             echo "Updated Info.plist version to $RAW_VER"
           fi
-          # Ad-hoc code signing to ensure macOS doesn't mark the bundle as corrupted
+          # Ad-hoc code signing
           codesign --force --deep --sign - "dist/Screenshot Indexing.app" || true
 
-      - name: Package DMG and ZIP
+      - name: Package DMG
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
           LABEL="${{ matrix.label }}"
           mkdir -p release
-          
-          # 1. Package as ZIP
-          cd dist
-          zip -ry "../release/Screenshot-Indexing-${VERSION}-macOS-${LABEL}.zip" "Screenshot Indexing.app"
-          cd ..
 
-          # 2. Package as DMG with /Applications drag-and-drop shortcut
+          # Package as DMG with /Applications drag-and-drop shortcut
           mkdir -p dmg_root
           cp -R "dist/Screenshot Indexing.app" dmg_root/
           ln -s /Applications dmg_root/Applications
           hdiutil create -volname "Screenshot Indexing" -srcfolder dmg_root -ov -format UDZO "release/Screenshot-Indexing-${VERSION}-macOS-${LABEL}.dmg"
           rm -rf dmg_root
 
-          echo "Generated packages in release directory:"
+          echo "Generated DMG package in release directory:"
           ls -lh release/
 
       - name: Upload Artifacts
@@ -110,16 +131,16 @@ jobs:
           retention-days: 30
 
       - name: Create or Update GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_version.outputs.version }}
           name: ${{ steps.get_version.outputs.version }}
+          body: ${{ steps.get_version.outputs.body }}
           files: |
             release/Screenshot-Indexing-${{ steps.get_version.outputs.version }}-macOS-${{ matrix.label }}.dmg
-            release/Screenshot-Indexing-${{ steps.get_version.outputs.version }}-macOS-${{ matrix.label }}.zip
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
