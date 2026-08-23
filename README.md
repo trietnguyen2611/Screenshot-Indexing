@@ -10,16 +10,24 @@ Giao diện được thiết kế theo chuẩn ngôn ngữ thiết kế của Ap
 
 ## 1. Tải ứng dụng (Dành cho người dùng)
 
-Người dùng macOS có thể tải trực tiếp file cài đặt đã được đóng gói sẵn mà không cần cài đặt Python:
+Truy cập mục **[Releases](https://github.com/trietnguyen2611/Screenshot-Indexing/releases)** để tải bản cài đặt tương ứng với chip máy Mac của bạn:
 
-- **Cách 1 - Từ GitHub Releases (Khuyên dùng)**:
-  - Truy cập mục **[Releases](https://github.com/trietnguyen2611/Screenshot-Indexing/releases)**.
-  - Tải file `Screenshot-Indexing-macOS.dmg` hoặc `Screenshot-Indexing-macOS.zip`.
-  - Mở file `.dmg` và kéo ứng dụng vào thư mục **Applications** để sử dụng.
+| Loại máy Mac | File cài đặt khuyên dùng |
+| :--- | :--- |
+| **Mac Intel** (MacBook/iMac đời cũ dùng chip Intel) | `Screenshot-Indexing-<version>-macOS-Intel.dmg` |
+| **Mac Apple Silicon** (M1, M2, M3, M4,...) | `Screenshot-Indexing-<version>-macOS-AppleSilicon.dmg` |
 
-- **Cách 2 - Từ GitHub Actions**:
-  - Truy cập tab **[Actions](https://github.com/trietnguyen2611/Screenshot-Indexing/actions)** > Chọn build mới nhất.
-  - Tải artifact `Screenshot-Indexing-macOS-Packages` ở cuối trang.
+### Hướng dẫn cài đặt:
+1. Mở file `.dmg` vừa tải về.
+2. Kéo biểu tượng **Screenshot Indexing** vào thư mục **Applications**.
+3. **Lưu ý mở app lần đầu (Bỏ qua Gatekeeper macOS)**:
+   - Do ứng dụng mã nguồn mở chưa đăng ký chứng chỉ trả phí của Apple, macOS có thể báo *"Không thể mở vì nhà phát triển không xác định"* hoặc *"Ứng dụng bị hỏng"*.
+   - **Cách xử lý rất đơn giản**:
+     - Mở **Terminal** và chạy lệnh:
+       ```bash
+       xattr -cr /Applications/"Screenshot Indexing.app"
+       ```
+     - Hoặc: Vào thư mục **Applications** > **Chuột phải (hoặc nhấn giữ Control + click)** vào **Screenshot Indexing** > Chọn **Open (Mở)** > Bấm **Open** thêm một lần nữa.
 
 ---
 
@@ -30,7 +38,7 @@ Người dùng macOS có thể tải trực tiếp file cài đặt đã đượ
 - **Xem trước**: Kiểm tra danh sách file trước khi tiến hành đổi tên.
 - **Tránh xung đột tên**: Sử dụng cơ chế đổi tên qua file tạm để tránh trùng lặp.
 - **Bộ duyệt thư mục**: Hỗ trợ dán đường dẫn trực tiếp hoặc duyệt thư mục qua giao diện.
-- **Tự động đóng gói CI/CD**: Tự động build ra ứng dụng macOS (`.app`), file `.dmg`, và `.zip` khi cập nhật code lên GitHub.
+- **Tự động đóng gói CI/CD**: Tự động build ra ứng dụng native riêng cho cả **Intel** và **Apple Silicon** khi cập nhật code lên GitHub.
 
 ---
 
@@ -48,26 +56,44 @@ pip install -r requirements.txt
 python app.py
 ```
 
-### Bước 3. Tự đóng gói (Build) ứng dụng macOS:
+### Bước 3. Tự đóng gói (Build) ứng dụng macOS cục bộ:
 ```bash
-pyinstaller --noconsole --name "Screenshot Indexing" --icon app_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
+APP_VERSION="1.0.0" pyinstaller --noconsole --name "Screenshot Indexing" --icon app_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
 ```
 
 ---
 
-## 4. Cấu trúc dự án
+## 4. Cách phát hành phiên bản mới (Release & Versioning)
+
+Khi muốn ra mắt một phiên bản mới (ví dụ: `v1.0.2`):
+
+### Cách 1. Dùng Git Tag (Đơn giản nhất):
+```bash
+git tag v1.0.2
+git push origin v1.0.2
+```
+> GitHub Actions sẽ tự động kích hoạt 2 luồng build song song cho **Intel** và **Apple Silicon**, sau đó phát hành cả 2 file `.dmg` lên mục **Releases**.
+
+### Cách 2. Kích hoạt thủ công từ GitHub Actions:
+1. Vào tab **Actions** trên GitHub.
+2. Chọn workflow **Build & Release macOS App**.
+3. Bấm nút **Run workflow** và nhập phiên bản (ví dụ: `v1.0.2`).
+
+---
+
+## 5. Cấu trúc dự án
 
 ```
 Screenshot-Indexing/
 ├── .github/
 │   └── workflows/
-│       └── build-and-release.yml # CI/CD tự động build & release
+│       └── build-and-release.yml # CI/CD tự động build cho Intel & Apple Silicon
 ├── app.py                       # Backend Flask & PyWebView
 ├── app_icon.icns                # Logo / Icon ứng dụng
 ├── requirements.txt             # Danh sách thư viện Python
 ├── .gitignore                   # Cấu hình bỏ qua file build & rác
 ├── templates/
-│   └── index.html               # Giao diện HTML
+│   └── index.html               # Giao diện HTML (hiển thị version)
 └── static/
     ├── style.css                # CSS thiết kế giao diện
     └── app.js                   # Logic xử lý frontend

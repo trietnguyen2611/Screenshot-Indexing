@@ -5,6 +5,8 @@ import sys
 import unicodedata
 from flask import Flask, render_template, jsonify, request, send_from_directory
 
+VERSION = os.environ.get("APP_VERSION", "1.0.0").lstrip("v")
+
 if getattr(sys, 'frozen', False):
     template_folder = os.path.join(sys._MEIPASS, 'templates')
     static_folder = os.path.join(sys._MEIPASS, 'static')
@@ -60,7 +62,12 @@ def get_seconds_display(filename):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", version=VERSION)
+
+
+@app.route("/api/version")
+def get_version():
+    return jsonify({"version": VERSION})
 
 
 @app.route("/api/browse", methods=["POST"])
@@ -186,5 +193,5 @@ if __name__ == "__main__":
     flask_thread.start()
 
     # Open PyWebView window
-    webview.create_window("Screenshot Indexing", "http://127.0.0.1:5050", width=1200, height=800)
+    webview.create_window(f"Screenshot Indexing v{VERSION}", "http://127.0.0.1:5050", width=1200, height=800)
     webview.start()

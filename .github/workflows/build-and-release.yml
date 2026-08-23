@@ -7,14 +7,29 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.2.1 - leave empty to auto-detect)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
 
 jobs:
   build-macos:
-    name: Build macOS Application (.app, .dmg, .zip)
-    runs-on: macos-latest
+    name: Build macOS (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13
+            arch: x86_64
+            label: Intel
+          - os: macos-14
+            arch: arm64
+            label: AppleSilicon
 
     steps:
       - name: Checkout repository
@@ -26,6 +41,24 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
+      - name: Determine Version
+        id: get_version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            INPUT_VER="${{ inputs.version }}"
+            [[ "$INPUT_VER" != v* ]] && VERSION="v${INPUT_VER}" || VERSION="${INPUT_VER}"
+          elif [[ "$GITHUB_REF" =~ ^refs/tags/v ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            PY_VER=$(python3 -c "import re; m = re.search(r'VERSION\s*=\s*.*?([0-9]+\.[0-9]+\.[0-9]+)', open('app.py').read()); print(m.group(1) if m else '1.0.0')" 2>/dev/null || echo "1.0.0")
+            VERSION="v${PY_VER}"
+          fi
+          
+          RAW_VERSION="${VERSION#v}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "raw_version=${RAW_VERSION}" >> $GITHUB_OUTPUT
+          echo "Building Version: ${VERSION} (${{ matrix.label }} - ${{ matrix.arch }})"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -33,22 +66,36 @@ jobs:
 
       - name: Build macOS App with PyInstaller
         run: |
-          pyinstaller --noconsole --name "Screenshot Indexing" --icon app_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
+          APP_VERSION="${{ steps.get_version.outputs.raw_version }}" pyinstaller --noconsole --name "Screenshot Indexing" --icon app_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
+
+      - name: Update Info.plist & Ad-hoc Codesign
+        run: |
+          RAW_VER="${{ steps.get_version.outputs.raw_version }}"
+          PLIST_PATH="dist/Screenshot Indexing.app/Contents/Info.plist"
+          if [ -f "$PLIST_PATH" ]; then
+            plutil -replace CFBundleShortVersionString -string "$RAW_VER" "$PLIST_PATH"
+            plutil -replace CFBundleVersion -string "$RAW_VER" "$PLIST_PATH"
+            echo "Updated Info.plist version to $RAW_VER"
+          fi
+          # Ad-hoc code signing to ensure macOS doesn't mark the bundle as corrupted
+          codesign --force --deep --sign - "dist/Screenshot Indexing.app" || true
 
       - name: Package DMG and ZIP
         run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          LABEL="${{ matrix.label }}"
           mkdir -p release
           
           # 1. Package as ZIP
           cd dist
-          zip -ry ../release/Screenshot-Indexing-macOS.zip "Screenshot Indexing.app"
+          zip -ry "../release/Screenshot-Indexing-${VERSION}-macOS-${LABEL}.zip" "Screenshot Indexing.app"
           cd ..
 
           # 2. Package as DMG with /Applications drag-and-drop shortcut
           mkdir -p dmg_root
           cp -R "dist/Screenshot Indexing.app" dmg_root/
           ln -s /Applications dmg_root/Applications
-          hdiutil create -volname "Screenshot Indexing" -srcfolder dmg_root -ov -format UDZO release/Screenshot-Indexing-macOS.dmg
+          hdiutil create -volname "Screenshot Indexing" -srcfolder dmg_root -ov -format UDZO "release/Screenshot-Indexing-${VERSION}-macOS-${LABEL}.dmg"
           rm -rf dmg_root
 
           echo "Generated packages in release directory:"
@@ -57,20 +104,20 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Screenshot-Indexing-macOS-Packages
+          name: Screenshot-Indexing-${{ steps.get_version.outputs.version }}-macOS-${{ matrix.label }}
           path: release/*
           if-no-files-found: error
           retention-days: 30
 
       - name: Create or Update GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'latest' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'Screenshot Indexing' }}
+          tag_name: ${{ steps.get_version.outputs.version }}
+          name: Screenshot Indexing ${{ steps.get_version.outputs.version }}
           files: |
-            release/Screenshot-Indexing-macOS.dmg
-            release/Screenshot-Indexing-macOS.zip
+            release/Screenshot-Indexing-${{ steps.get_version.outputs.version }}-macOS-${{ matrix.label }}.dmg
+            release/Screenshot-Indexing-${{ steps.get_version.outputs.version }}-macOS-${{ matrix.label }}.zip
           draft: false
           prerelease: false
           generate_release_notes: true
