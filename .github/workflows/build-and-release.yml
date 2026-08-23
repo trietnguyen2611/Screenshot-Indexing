@@ -114,7 +114,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_version.outputs.version }}
-          name: Screenshot Indexing ${{ steps.get_version.outputs.version }}
+          name: ${{ steps.get_version.outputs.version }}
           files: |
             release/Screenshot-Indexing-${{ steps.get_version.outputs.version }}-macOS-${{ matrix.label }}.dmg
             release/Screenshot-Indexing-${{ steps.get_version.outputs.version }}-macOS-${{ matrix.label }}.zip
