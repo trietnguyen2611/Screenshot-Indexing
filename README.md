@@ -2,35 +2,35 @@
 
 [![Build & Release macOS App](https://github.com/trietnguyen2611/Screenshot-Indexing/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/trietnguyen2611/Screenshot-Indexing/actions/workflows/build-and-release.yml)
 
-Ứng dụng hỗ trợ sắp xếp và đổi tên hàng loạt file chụp màn hình (Screenshot) theo thứ tự thời gian, được thiết kế theo chuẩn **Apple Design System**.
+An app that helps you sort and rename many screenshot files by time. It follows the **Apple Design System** style.
 
 ---
 
-## Tính năng chính
+## Main Features
 
-- **Sắp xếp tự động**: Sắp xếp file screenshot theo mốc thời gian chụp chính xác.
-- **Đánh số tùy chỉnh**: Nhập phạm vi số bắt đầu và số kết thúc để đổi tên hàng loạt.
-- **Xem trước trực quan**: Xem danh sách tên mới và hình ảnh trước khi thực hiện.
-- **Tránh xung đột tên**: Cơ chế đổi tên qua file tạm tránh ghi đè dữ liệu.
-- **Bộ duyệt thư mục**: Hỗ trợ dán đường dẫn hoặc duyệt thư mục trực tiếp.
+- **Auto Sort**: Sort screenshot files by the exact time they were taken.
+- **Custom Numbers**: Enter a start number and end number to rename many files at once.
+- **Visual Preview**: See the new names and images before you change anything.
+- **Avoid Name Conflicts**: Uses temporary files so data is not overwritten.
+- **Folder Browser**: Paste a path or choose a folder directly.
 
 ---
 
-## Cài đặt & Chạy từ mã nguồn
+## Install & Run from Source
 
 ```bash
-# 1. Khởi tạo môi trường ảo và cài đặt thư viện
+# 1. Create virtual environment and install libraries
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# 2. Chạy ứng dụng
+# 2. Run the app
 python app.py
 ```
 
 ---
 
-## Đóng gói ứng dụng (Build macOS App)
+## Build the App (macOS App)
 
 ```bash
 pyinstaller --noconsole --name "Screenshot Indexing" --icon app_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
@@ -38,14 +38,14 @@ pyinstaller --noconsole --name "Screenshot Indexing" --icon app_icon.icns --add-
 
 ---
 
-## Cấu trúc dự án
+## Project Structure
 
 ```
 Screenshot-Indexing/
-├── .github/workflows/   # CI/CD tự động build & release (Intel & Apple Silicon)
-├── app.py               # Backend Flask & PyWebView
-├── app_icon.icns        # Icon ứng dụng
-├── requirements.txt     # Danh sách thư viện
-├── templates/           # Giao diện HTML
+├── .github/workflows/   # CI/CD for auto build & release (Intel & Apple Silicon)
+├── app.py               # Flask backend & PyWebView
+├── app_icon.icns        # App icon
+├── requirements.txt     # List of libraries
+├── templates/           # HTML interface
 └── static/              # CSS & JS frontend
 ```
