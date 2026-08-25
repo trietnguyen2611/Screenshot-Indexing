@@ -1,36 +1,38 @@
-# Screenshot Indexing
+# Screenshot Indexing – Batch Rename & Sort Screenshots by Time
 
 [![Build & Release macOS App](https://github.com/trietnguyen2611/Screenshot-Indexing/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/trietnguyen2611/Screenshot-Indexing/actions/workflows/build-and-release.yml)
 
-Ứng dụng hỗ trợ sắp xếp và đổi tên hàng loạt file chụp màn hình (Screenshot) theo thứ tự thời gian, được thiết kế theo chuẩn **Apple Design System**.
+A simple **screenshot indexing and batch rename tool** for macOS. Automatically sort screenshots by capture time and rename them with custom numbers. Designed with Apple Design System principles.
+
+Ideal for people who take many screenshots and want clean, ordered file names.
 
 ---
 
-## Tính năng chính
+## Main Features
 
-- **Sắp xếp tự động**: Sắp xếp file screenshot theo mốc thời gian chụp chính xác.
-- **Đánh số tùy chỉnh**: Nhập phạm vi số bắt đầu và số kết thúc để đổi tên hàng loạt.
-- **Xem trước trực quan**: Xem danh sách tên mới và hình ảnh trước khi thực hiện.
-- **Tránh xung đột tên**: Cơ chế đổi tên qua file tạm tránh ghi đè dữ liệu.
-- **Bộ duyệt thư mục**: Hỗ trợ dán đường dẫn hoặc duyệt thư mục trực tiếp.
+- **Auto Sort by Time** — Arrange screenshot files by the exact time they were taken.
+- **Custom Number Range** — Set start and end numbers to rename many files at once.
+- **Live Preview** — See new file names and images before applying any change.
+- **Safe Rename** — Uses temporary files to avoid overwriting or losing data.
+- **Easy Folder Selection** — Paste a path or browse folders directly.
 
 ---
 
-## Cài đặt & Chạy từ mã nguồn
+## Install & Run from Source
 
 ```bash
-# 1. Khởi tạo môi trường ảo và cài đặt thư viện
+# 1. Create virtual environment and install libraries
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# 2. Chạy ứng dụng
+# 2. Run the app
 python app.py
 ```
 
 ---
 
-## Đóng gói ứng dụng (Build macOS App)
+## Build macOS App
 
 ```bash
 pyinstaller --noconsole --name "Screenshot Indexing" --icon macapp_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
@@ -38,29 +40,35 @@ pyinstaller --noconsole --name "Screenshot Indexing" --icon macapp_icon.icns --a
 
 ---
 
-## Cấu trúc dự án
+## Project Structure
 
 ```
 Screenshot-Indexing/
-├── .github/workflows/   # CI/CD tự động build & release (Intel & Apple Silicon)
-├── app.py               # Backend Flask & PyWebView
-├── macapp_icon.icns        # Icon ứng dụng
-├── requirements.txt     # Danh sách thư viện
-├── templates/           # Giao diện HTML
-└── static/              # CSS & JS frontend
+├── .github/workflows/   # CI/CD auto build & release (Intel & Apple Silicon)
+├── app.py               # Flask backend + PyWebView
+├── macapp_icon.icns     # App icon
+├── requirements.txt     # Python dependencies
+├── templates/           # HTML interface
+└── static/              # CSS and JavaScript
 ```
 
 ---
 
-## Khắc phục lỗi không mở được ứng dụng trên macOS (App is damaged)
+## macOS Troubleshooting (App is damaged)
 
-Khi tải file `.dmg` từ GitHub Release, macOS Gatekeeper có thể chặn ứng dụng và báo lỗi **"Screenshot Indexing is damaged and can't be opened. You should move it to the Trash."** (Ứng dụng bị hỏng và không thể mở).
+When downloading the `.dmg` from GitHub Releases, macOS Gatekeeper might block the application with this error: **"Screenshot Indexing is damaged and can't be opened. You should move it to the Trash."**
 
-**Cách khắc phục:**
-1. Kéo thả file `Screenshot Indexing.app` từ DMG vào thư mục **Applications** (Ứng dụng).
-2. Mở ứng dụng **Terminal** trên máy Mac.
-3. Chạy lệnh sau để gỡ bỏ thuộc tính cách ly (Quarantine):
+**How to fix:**
+1. Drag and drop the `Screenshot Indexing.app` from the DMG into your **Applications** folder.
+2. Open the **Terminal** app.
+3. Run this command to remove the quarantine attribute:
    ```bash
    xattr -cr "/Applications/Screenshot Indexing.app"
    ```
-4. Mở lại ứng dụng bình thường.
+4. Open the app normally.
+
+---
+
+## Keywords
+
+`screenshot indexing` `batch rename screenshots` `macOS screenshot tool` `rename files by time` `Python Flask PyWebView` `Apple Design` `screenshot organizer`
