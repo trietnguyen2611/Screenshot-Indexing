@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Screenshot Indexing</title>
-    <meta name="description" content="<span data-i18n="desc">Batch rename screenshot files chronologically</span>">
+    <meta name="description" content="Batch rename screenshot files chronologically">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 
@@ -136,7 +136,6 @@
                     <div class="card notes-card">
                         <textarea id="notes-input" class="notes-input" placeholder="Enter notes here..." data-i18n-placeholder="notes_placeholder" oninput="saveNotes()"></textarea>
                         
-
                         <button id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light / Dark theme" data-i18n-title="theme_toggle">
                             <svg class="theme-icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="5"/>
@@ -156,19 +155,25 @@
                     </div>
                 </section>
                 
-                <!-- Section: Preferences -->
-                <div class="sidebar-prefs" style="display: flex; gap: 8px; margin-top: auto; padding-top: 16px;">
-                    <button class="btn btn-secondary" onclick="toggleLanguage()" style="flex: 1;">
-                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <!-- Section: Preferences (Language Select) -->
+                <div class="sidebar-prefs">
+                    <div class="lang-select-container">
+                        <svg class="lang-select-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"></circle>
                             <line x1="2" y1="12" x2="22" y2="12"></line>
                             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                         </svg>
-                        <span id="lang-btn-text">Tiếng Việt</span>
-                    </button>
+                        <select id="lang-select" class="lang-select" onchange="setLanguage(this.value)" aria-label="Select Language">
+                            <option value="en">English</option>
+                            <option value="vi">Tiếng Việt</option>
+                        </select>
+                        <svg class="lang-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </div>
                 </div>
 
-            </div>
+            </div>          </div>
 
             <!-- Resizer Handle -->
             <div class="resizer-handle" id="resizer-handle" title="Kéo để điều chỉnh kích thước">

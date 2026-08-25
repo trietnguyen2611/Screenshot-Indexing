@@ -153,14 +153,15 @@ function updateDOMTranslations() {
         el.title = t(el.getAttribute('data-i18n-title'));
     });
     
-    const langBtnText = document.getElementById('lang-btn-text');
-    if (langBtnText) {
-        langBtnText.textContent = currentLang === 'en' ? 'Ngôn ngữ: Tiếng Việt' : 'Language: English';
+    const langSelect = document.getElementById('lang-select');
+    if (langSelect && langSelect.value !== currentLang) {
+        langSelect.value = currentLang;
     }
 }
 
-function toggleLanguage() {
-    currentLang = currentLang === 'vi' ? 'en' : 'vi';
+function setLanguage(lang) {
+    if (lang !== 'en' && lang !== 'vi') return;
+    currentLang = lang;
     localStorage.setItem('user_lang', currentLang);
     document.documentElement.setAttribute('lang', currentLang);
     updateDOMTranslations();
@@ -747,6 +748,11 @@ initTheme();
 // ── Init ────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+    const langSelect = document.getElementById('lang-select');
+    if (langSelect) {
+        langSelect.value = currentLang;
+    }
+    updateDOMTranslations();
     renderEmptyState();
     initResizer();
     loadNotes();
