@@ -25,19 +25,15 @@ permissions:
 jobs:
   build-macos:
     name: Build macOS (${{ matrix.label }})
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: x64
-            pyinstaller_arch: x86_64
             label: Intel
-            os: macos-13
           - arch: arm64
-            pyinstaller_arch: arm64
             label: AppleSilicon
-            os: macos-latest
 
     steps:
       - name: Checkout repository
@@ -88,14 +84,17 @@ jobs:
             fi
           fi
 
-      - name: Install dependencies
+      - name: Install dependencies & PyInstaller in Virtual Environment
         run: |
+          python -m venv .venv
+          source .venv/bin/activate
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install -r requirements.txt
 
       - name: Build macOS App with PyInstaller
         run: |
-          APP_VERSION="${{ steps.get_version.outputs.raw_version }}" pyinstaller --noconsole --target-arch ${{ matrix.pyinstaller_arch }} --name "Screenshot Indexing" --icon macapp_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
+          source .venv/bin/activate
+          APP_VERSION="${{ steps.get_version.outputs.raw_version }}" python -m PyInstaller --noconsole --name "Screenshot Indexing" --icon macapp_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
 
       - name: Update Info.plist & Ad-hoc Codesign
         run: |
