@@ -33,7 +33,7 @@ python app.py
 ## Đóng gói ứng dụng (Build macOS App)
 
 ```bash
-pyinstaller --noconsole --name "Screenshot Indexing" --icon app_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
+pyinstaller --noconsole --name "Screenshot Indexing" --icon macapp_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
 ```
 
 ---
@@ -44,8 +44,23 @@ pyinstaller --noconsole --name "Screenshot Indexing" --icon app_icon.icns --add-
 Screenshot-Indexing/
 ├── .github/workflows/   # CI/CD tự động build & release (Intel & Apple Silicon)
 ├── app.py               # Backend Flask & PyWebView
-├── app_icon.icns        # Icon ứng dụng
+├── macapp_icon.icns        # Icon ứng dụng
 ├── requirements.txt     # Danh sách thư viện
 ├── templates/           # Giao diện HTML
 └── static/              # CSS & JS frontend
 ```
+
+---
+
+## Khắc phục lỗi không mở được ứng dụng trên macOS (App is damaged)
+
+Khi tải file `.dmg` từ GitHub Release, macOS Gatekeeper có thể chặn ứng dụng và báo lỗi **"Screenshot Indexing is damaged and can't be opened. You should move it to the Trash."** (Ứng dụng bị hỏng và không thể mở).
+
+**Cách khắc phục:**
+1. Kéo thả file `Screenshot Indexing.app` từ DMG vào thư mục **Applications** (Ứng dụng).
+2. Mở ứng dụng **Terminal** trên máy Mac.
+3. Chạy lệnh sau để gỡ bỏ thuộc tính cách ly (Quarantine):
+   ```bash
+   xattr -cr "/Applications/Screenshot Indexing.app"
+   ```
+4. Mở lại ứng dụng bình thường.

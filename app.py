@@ -8,6 +8,9 @@ from flask import Flask, render_template, jsonify, request, send_from_directory
 VERSION = os.environ.get("APP_VERSION", "1.0.0").lstrip("v")
 
 if getattr(sys, 'frozen', False):
+    if sys.platform == 'darwin':
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
     template_folder = os.path.join(sys._MEIPASS, 'templates')
     static_folder = os.path.join(sys._MEIPASS, 'static')
     app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
@@ -15,6 +18,18 @@ else:
     app = Flask(__name__)
 
 # Store current state
+
+def get_msg(key, lang):
+    msgs = {
+        "path_not_exist": {"vi": "Đường dẫn không tồn tại", "en": "Path does not exist"},
+        "no_permission": {"vi": "Không có quyền truy cập", "en": "Permission denied"},
+        "folder_not_exist": {"vi": "Thư mục không tồn tại", "en": "Folder does not exist"},
+        "no_files": {"vi": "Không có file để đổi tên", "en": "No files to rename"},
+        "error_prefix": {"vi": "Lỗi", "en": "Error"},
+        "rename_success": {"vi": "Đã đổi tên {success_count}/{count} file thành công!", "en": "Successfully renamed {success_count}/{count} files!"}
+    }
+    return msgs.get(key, {}).get(lang, msgs.get(key, {}).get("en"))
+
 state = {
     "folder_path": "",
     "files": []
@@ -77,7 +92,7 @@ def browse_directory():
     path = data.get("path", os.path.expanduser("~"))
 
     if not os.path.isdir(path):
-        return jsonify({"ok": False, "message": "Đường dẫn không tồn tại"})
+        return jsonify({"ok": False, "message": get_msg("path_not_exist", data.get("lang", "en"))})
 
     try:
         entries = []
@@ -93,7 +108,7 @@ def browse_directory():
             "dirs": entries
         })
     except PermissionError:
-        return jsonify({"ok": False, "message": "Không có quyền truy cập"})
+        return jsonify({"ok": False, "message": get_msg("no_permission", data.get("lang", "en"))})
 
 
 @app.route("/api/scan", methods=["POST"])
@@ -103,7 +118,7 @@ def scan_files():
     folder = data.get("folder", state["folder_path"])
 
     if not folder or not os.path.isdir(folder):
-        return jsonify({"ok": False, "message": "Thư mục không tồn tại"})
+        return jsonify({"ok": False, "message": get_msg("folder_not_exist", data.get("lang", "en"))})
 
     state["folder_path"] = folder
 
@@ -136,10 +151,10 @@ def rename_files():
     files = state["files"]
 
     if not files:
-        return jsonify({"ok": False, "message": "Không có file để đổi tên"})
+        return jsonify({"ok": False, "message": get_msg("no_files", data.get("lang", "en"))})
 
     if not folder or not os.path.isdir(folder):
-        return jsonify({"ok": False, "message": "Thư mục không tồn tại"})
+        return jsonify({"ok": False, "message": get_msg("folder_not_exist", data.get("lang", "en"))})
 
     total_numbers = end_num - start_num + 1
     count = min(len(files), total_numbers)
@@ -160,7 +175,7 @@ def rename_files():
             os.rename(old_path, temp_path)
             temp_pairs.append((temp_name, new_name))
     except Exception as e:
-        return jsonify({"ok": False, "message": f"Lỗi: {str(e)}"})
+        return jsonify({"ok": False, "message": f"{get_msg('error_prefix', data.get('lang', 'en'))}: {str(e)}"})
 
     # Step 2: Rename from temp to final
     success_count = 0
@@ -177,7 +192,7 @@ def rename_files():
         "ok": True,
         "success": success_count,
         "total": count,
-        "message": f"Đã đổi tên {success_count}/{count} file thành công!"
+        "message": get_msg("rename_success", data.get("lang", "en")).format(success_count=success_count, count=count)
     })
 
 

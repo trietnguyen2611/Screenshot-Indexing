@@ -25,15 +25,17 @@ permissions:
 jobs:
   build-macos:
     name: Build macOS (${{ matrix.label }})
-    runs-on: macos-14
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: x64
             label: Intel
+            os: macos-13
           - arch: arm64
             label: AppleSilicon
+            os: macos-14
 
     steps:
       - name: Checkout repository
@@ -91,7 +93,7 @@ jobs:
 
       - name: Build macOS App with PyInstaller
         run: |
-          APP_VERSION="${{ steps.get_version.outputs.raw_version }}" pyinstaller --noconsole --name "Screenshot Indexing" --icon app_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
+          APP_VERSION="${{ steps.get_version.outputs.raw_version }}" pyinstaller --noconsole --name "Screenshot Indexing" --icon macapp_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
 
       - name: Update Info.plist & Ad-hoc Codesign
         run: |

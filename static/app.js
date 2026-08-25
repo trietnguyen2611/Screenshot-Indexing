@@ -4,19 +4,167 @@ const API = {
     browse: (path) => fetch('/api/browse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path })
+        body: JSON.stringify({ path, lang: currentLang })
     }).then(r => r.json()),
     scanFiles: (folder) => fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folder })
+        body: JSON.stringify({ folder, lang: currentLang })
     }).then(r => r.json()),
     renameFiles: (start, end) => fetch('/api/rename', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ start, end })
+        body: JSON.stringify({ start, end, lang: currentLang })
     }).then(r => r.json()),
 };
+
+// ── i18n ────────────────────────────────────────────────────────────
+const translations = {
+    en: {
+        desc: "Batch rename screenshot files chronologically",
+        folder: "Folder",
+        folder_placeholder: "Enter folder path...",
+        browse: "Browse",
+        refresh: "Refresh",
+        range: "Numbering Range",
+        from: "From",
+        to: "To",
+        preview: "Preview",
+        rename: "Rename",
+        notes: "Notes",
+        notes_placeholder: "Enter notes here...",
+        theme_toggle: "Toggle Light / Dark theme",
+        file_list: "Screenshot File List",
+        original_name: "Original Name",
+        new_name: "New Name",
+        empty_title: "No files yet",
+        empty_desc: "Select a folder containing screenshot files to start",
+        modal_select_folder: "Select Folder",
+        back: "Back",
+        cancel: "Cancel",
+        select_this_folder: "Select this folder",
+        confirm_rename: "Confirm Rename",
+        confirm_message: "Are you sure you want to rename?",
+        first_file: "First file:",
+        last_file: "Last file:",
+        cancel_btn: "Cancel",
+        agree_rename: "Confirm Rename",
+        preview_image: "Preview Image",
+        prev_image: "Previous Image (Left Arrow / Up)",
+        next_image: "Next Image (Right Arrow / Down)",
+        // JS strings
+        toast_enter_folder: "Please enter folder path",
+        toast_no_subfolder: "No subfolders",
+        toast_error_browse: "Error browsing folder",
+        toast_no_folder_selected: "No folder selected",
+        status_scanning: "Scanning...",
+        status_file_count: "{count} screenshot files",
+        toast_scan_error: "Error scanning files",
+        status_conn_error: "Connection error",
+        toast_refresh: "List refreshed",
+        toast_no_preview: "No files to preview",
+        toast_invalid_num: "Please enter a valid number",
+        toast_start_gt_end: "Start number must be smaller than end number",
+        status_preview: "Preview: {count} files will be renamed",
+        toast_no_rename: "No files to rename",
+        confirm_rename_count: "Are you sure you want to rename {count} files?",
+        btn_renaming: "Renaming...",
+        toast_rename_error: "Error renaming files",
+        toast_theme_change: "Switched to {theme} theme",
+        theme_dark: "Dark",
+        theme_light: "Light",
+        btn_rename: "Rename"
+    },
+    vi: {
+        desc: "Đổi tên đồng loạt file screenshot theo thứ tự thời gian",
+        folder: "Thư mục",
+        folder_placeholder: "Nhập đường dẫn thư mục...",
+        browse: "Duyệt",
+        refresh: "Làm mới",
+        range: "Phạm vi đánh số",
+        from: "Từ",
+        to: "Đến",
+        preview: "Xem trước",
+        rename: "Đổi tên",
+        notes: "Ghi chú",
+        notes_placeholder: "Nhập ghi chú tại đây...",
+        theme_toggle: "Đổi chế độ Sáng / Tối",
+        file_list: "Danh sách file screenshot",
+        original_name: "Tên gốc",
+        new_name: "Tên mới",
+        empty_title: "Chưa có file nào",
+        empty_desc: "Chọn thư mục chứa các file screenshot để bắt đầu",
+        modal_select_folder: "Chọn thư mục",
+        back: "Trở về",
+        cancel: "Huỷ",
+        select_this_folder: "Chọn thư mục này",
+        confirm_rename: "Xác nhận đổi tên",
+        confirm_message: "Bạn có chắc chắn muốn đổi tên?",
+        first_file: "File đầu tiên:",
+        last_file: "File cuối cùng:",
+        cancel_btn: "Huỷ bỏ",
+        agree_rename: "Đồng ý đổi tên",
+        preview_image: "Xem trước ảnh",
+        prev_image: "Ảnh trước (Mũi tên Trái / Up)",
+        next_image: "Ảnh tiếp theo (Mũi tên Phải / Down)",
+        // JS strings
+        toast_enter_folder: "Vui lòng nhập đường dẫn thư mục",
+        toast_no_subfolder: "Không có thư mục con",
+        toast_error_browse: "Lỗi khi duyệt thư mục",
+        toast_no_folder_selected: "Chưa chọn thư mục",
+        status_scanning: "Đang quét...",
+        status_file_count: "{count} file screenshot",
+        toast_scan_error: "Lỗi khi quét file",
+        status_conn_error: "Lỗi kết nối",
+        toast_refresh: "Đã làm mới danh sách",
+        toast_no_preview: "Chưa có file để xem trước",
+        toast_invalid_num: "Vui lòng nhập số hợp lệ",
+        toast_start_gt_end: "Số đầu phải nhỏ hơn số cuối",
+        status_preview: "Xem trước: {count} file sẽ được đổi tên",
+        toast_no_rename: "Chưa có file để đổi tên",
+        confirm_rename_count: "Bạn có chắc chắn muốn đổi tên {count} file?",
+        btn_renaming: "${t('btn_renaming')}",
+        toast_rename_error: "Lỗi khi đổi tên",
+        toast_theme_change: "Đã chuyển sang Giao diện {theme}",
+        theme_dark: "Tối",
+        theme_light: "Sáng",
+        btn_rename: "Đổi tên"
+    }
+};
+
+let currentLang = localStorage.getItem('user_lang') || 'en';
+
+function t(key, vars = {}) {
+    let str = translations[currentLang][key] || key;
+    for (const [k, v] of Object.entries(vars)) {
+        str = str.replace(`{${k}}`, v);
+    }
+    return str;
+}
+
+function updateDOMTranslations() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        el.title = t(el.getAttribute('data-i18n-title'));
+    });
+    
+    const langBtnText = document.getElementById('lang-btn-text');
+    if (langBtnText) {
+        langBtnText.textContent = currentLang === 'en' ? 'Ngôn ngữ: Tiếng Việt' : 'Language: English';
+    }
+}
+
+function toggleLanguage() {
+    currentLang = currentLang === 'vi' ? 'en' : 'vi';
+    localStorage.setItem('user_lang', currentLang);
+    document.documentElement.setAttribute('lang', currentLang);
+    updateDOMTranslations();
+}
 
 // ── State ───────────────────────────────────────────────────────────
 
@@ -85,7 +233,7 @@ function loadFolder() {
     const folder = input.value.trim();
 
     if (!folder) {
-        showToast('Vui lòng nhập đường dẫn thư mục');
+        showToast(t('toast_enter_folder'));
         return;
     }
 
@@ -152,7 +300,7 @@ async function browseTo(path) {
             `).join('');
         }
     } catch (err) {
-        showToast('Lỗi khi duyệt thư mục');
+        showToast(t('toast_error_browse'));
     }
 }
 
@@ -174,18 +322,18 @@ function selectFolder() {
 
 async function scanFiles() {
     if (!currentFolder) {
-        showToast('Chưa chọn thư mục');
+        showToast(t('toast_no_folder_selected'));
         return;
     }
 
-    setStatus('Đang quét...', 'info');
+    setStatus(t('status_scanning'), 'info');
 
     try {
         const res = await API.scanFiles(currentFolder);
         if (res.ok) {
             currentFiles = res.files;
             renderTable(res.files);
-            setStatus(`${res.count} file screenshot`, 'success');
+            setStatus(t('status_file_count', {count: res.count}), 'success');
             $('#file-count').textContent = `(${res.count})`;
         } else {
             currentFiles = [];
@@ -194,18 +342,18 @@ async function scanFiles() {
             $('#file-count').textContent = '';
         }
     } catch (err) {
-        showToast('Lỗi khi quét file');
-        setStatus('Lỗi kết nối', 'error');
+        showToast(t('toast_scan_error'));
+        setStatus(t('status_conn_error'), 'error');
     }
 }
 
 async function refreshFiles() {
     if (!currentFolder) {
-        showToast('Chưa chọn thư mục');
+        showToast(t('toast_no_folder_selected'));
         return;
     }
     await scanFiles();
-    showToast('Đã làm mới danh sách');
+    showToast(t('toast_refresh'));
 }
 
 // ── Table ───────────────────────────────────────────────────────────
@@ -272,7 +420,7 @@ function renderEmptyState() {
 
 function preview() {
     if (!currentFiles.length) {
-        showToast('Chưa có file để xem trước');
+        showToast(t('toast_no_preview'));
         return;
     }
 
@@ -280,12 +428,12 @@ function preview() {
     const endNum = parseInt($('#input-end').value);
 
     if (isNaN(startNum) || isNaN(endNum)) {
-        showToast('Vui lòng nhập số hợp lệ');
+        showToast(t('toast_invalid_num'));
         return;
     }
 
     if (startNum > endNum) {
-        showToast('Số đầu phải nhỏ hơn số cuối');
+        showToast(t('toast_start_gt_end'));
         return;
     }
 
@@ -293,7 +441,7 @@ function preview() {
     const count = Math.min(currentFiles.length, totalNumbers);
 
     renderTable(currentFiles.slice(0, count), startNum);
-    setStatus(`Xem trước: ${count} file sẽ được đổi tên`, 'info');
+    setStatus(t('status_preview', {count: count}), 'info');
 }
 
 // ── Rename Confirmation Modal ───────────────────────────────────────
@@ -302,7 +450,7 @@ let pendingRenameData = null;
 
 function requestRename() {
     if (!currentFiles.length) {
-        showToast('Chưa có file để đổi tên');
+        showToast(t('toast_no_rename'));
         return;
     }
 
@@ -310,12 +458,12 @@ function requestRename() {
     const endNum = parseInt($('#input-end').value);
 
     if (isNaN(startNum) || isNaN(endNum)) {
-        showToast('Vui lòng nhập số hợp lệ');
+        showToast(t('toast_invalid_num'));
         return;
     }
 
     if (startNum > endNum) {
-        showToast('Số đầu phải nhỏ hơn số cuối');
+        showToast(t('toast_start_gt_end'));
         return;
     }
 
@@ -324,7 +472,7 @@ function requestRename() {
 
     pendingRenameData = { startNum, endNum, count };
 
-    $('#confirm-count-text').textContent = `Bạn có chắc chắn muốn đổi tên ${count} file?`;
+    $('#confirm-count-text').textContent = t('confirm_rename_count', {count: count});
     $('#confirm-first-old').textContent = currentFiles[0].name;
     $('#confirm-first-new').textContent = `${startNum}.png`;
     $('#confirm-last-old').textContent = currentFiles[count - 1].name;
@@ -356,7 +504,7 @@ async function executeRename() {
 
     const btn = $('#btn-rename');
     btn.disabled = true;
-    btn.innerHTML = `<span class="spinner"></span> Đang đổi tên...`;
+    btn.innerHTML = `<span class="spinner"></span> ${t('btn_renaming')}`;
 
     try {
         const res = await API.renameFiles(startNum, endNum);
@@ -371,8 +519,8 @@ async function executeRename() {
             setStatus(res.message, 'error');
         }
     } catch (err) {
-        showToast('Lỗi khi đổi tên');
-        setStatus('Lỗi kết nối', 'error');
+        showToast(t('toast_rename_error'));
+        setStatus(t('status_conn_error'), 'error');
     } finally {
         btn.disabled = false;
         btn.innerHTML = `
@@ -380,7 +528,7 @@ async function executeRename() {
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            Đổi tên
+            ${t('btn_rename')}
         `;
     }
 }
@@ -582,7 +730,7 @@ function toggleTheme() {
     const target = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', target);
     localStorage.setItem('user_theme', target);
-    showToast(`Đã chuyển sang ${target === 'dark' ? 'Giao diện Tối' : 'Giao diện Sáng'}`);
+    showToast(t('toast_theme_change', {theme: target === 'dark' ? t('theme_dark') : t('theme_light')}));
 }
 
 function initTheme() {
