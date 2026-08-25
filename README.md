@@ -1,18 +1,20 @@
-# Screenshot Indexing
+# Screenshot Indexing – Batch Rename & Sort Screenshots by Time
 
 [![Build & Release macOS App](https://github.com/trietnguyen2611/Screenshot-Indexing/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/trietnguyen2611/Screenshot-Indexing/actions/workflows/build-and-release.yml)
 
-An app that helps you sort and rename many screenshot files by time. It follows the **Apple Design System** style.
+A simple **screenshot indexing and batch rename tool** for macOS. Automatically sort screenshots by capture time and rename them with custom numbers. Designed with Apple Design System principles.
+
+Ideal for people who take many screenshots and want clean, ordered file names.
 
 ---
 
 ## Main Features
 
-- **Auto Sort**: Sort screenshot files by the exact time they were taken.
-- **Custom Numbers**: Enter a start number and end number to rename many files at once.
-- **Visual Preview**: See the new names and images before you change anything.
-- **Avoid Name Conflicts**: Uses temporary files so data is not overwritten.
-- **Folder Browser**: Paste a path or choose a folder directly.
+- **Auto Sort by Time** — Arrange screenshot files by the exact time they were taken.
+- **Custom Number Range** — Set start and end numbers to rename many files at once.
+- **Live Preview** — See new file names and images before applying any change.
+- **Safe Rename** — Uses temporary files to avoid overwriting or losing data.
+- **Easy Folder Selection** — Paste a path or browse folders directly.
 
 ---
 
@@ -30,7 +32,7 @@ python app.py
 
 ---
 
-## Build the App (macOS App)
+## Build macOS App
 
 ```bash
 pyinstaller --noconsole --name "Screenshot Indexing" --icon app_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
@@ -42,10 +44,16 @@ pyinstaller --noconsole --name "Screenshot Indexing" --icon app_icon.icns --add-
 
 ```
 Screenshot-Indexing/
-├── .github/workflows/   # CI/CD for auto build & release (Intel & Apple Silicon)
-├── app.py               # Flask backend & PyWebView
+├── .github/workflows/   # CI/CD auto build & release (Intel & Apple Silicon)
+├── app.py               # Flask backend + PyWebView
 ├── app_icon.icns        # App icon
-├── requirements.txt     # List of libraries
+├── requirements.txt     # Python dependencies
 ├── templates/           # HTML interface
-└── static/              # CSS & JS frontend
+└── static/              # CSS and JavaScript
 ```
+
+---
+
+## Keywords
+
+`screenshot indexing` `batch rename screenshots` `macOS screenshot tool` `rename files by time` `Python Flask PyWebView` `Apple Design` `screenshot organizer`
