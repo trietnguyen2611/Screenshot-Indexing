@@ -32,7 +32,7 @@ jobs:
         include:
           - arch: x64
             label: Intel
-            os: macos-15
+            os: macos-14
           - arch: arm64
             label: AppleSilicon
             os: macos-latest
