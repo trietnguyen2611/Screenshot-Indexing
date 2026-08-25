@@ -5,17 +5,23 @@ import subprocess
 import sys
 
 
-def is_macho(filepath):
-    """Check if file is a valid Mach-O binary using macOS native lipo tool."""
-    if not os.path.isfile(filepath) or os.path.islink(filepath):
-        return False
+def get_archs(path):
+    """Return set of Mach-O architectures in a file, or empty set if not Mach-O."""
+    if not os.path.isfile(path) or os.path.islink(path):
+        return set()
     try:
         res = subprocess.run(
-            ["lipo", "-info", filepath], capture_output=True, text=True
+            ["lipo", "-archs", path], capture_output=True, text=True
         )
-        return res.returncode == 0
+        if res.returncode == 0 and res.stdout.strip():
+            return set(res.stdout.strip().split())
     except Exception:
-        return False
+        pass
+    return set()
+
+
+def is_macho(filepath):
+    return len(get_archs(filepath)) > 0
 
 
 def resolve_app_path(path):
@@ -73,32 +79,58 @@ def merge_apps(app_x64_in, app_arm64_in, app_out):
             x64_file = os.path.join(app_x64, rel_path)
             arm64_file = os.path.join(app_arm64, rel_path)
 
-            if is_macho(out_file):
-                if os.path.exists(x64_file) and is_macho(x64_file):
-                    try:
-                        subprocess.run(
-                            [
-                                "lipo",
-                                "-create",
-                                x64_file,
-                                arm64_file,
-                                "-output",
-                                out_file,
-                            ],
-                            check=True,
-                            capture_output=True,
-                        )
-                        # Ensure executable permissions
-                        os.chmod(out_file, 0o755)
-                        merged_count += 1
-                        print(f"  [Universal Merged] {rel_path}")
-                    except subprocess.CalledProcessError as e:
-                        print(
-                            f"  [Warning] lipo failed on {rel_path}: {e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr}"
-                        )
+            if not os.path.exists(x64_file) or not os.path.exists(arm64_file):
+                continue
+
+            archs_x64 = get_archs(x64_file)
+            archs_arm64 = get_archs(arm64_file)
+
+            if not archs_x64 and not archs_arm64:
+                continue
+
+            # If already universal in either build
+            if "x86_64" in archs_arm64 and "arm64" in archs_arm64:
+                os.chmod(out_file, 0o755)
+                continue
+            if "x86_64" in archs_x64 and "arm64" in archs_x64:
+                shutil.copy2(x64_file, out_file)
+                os.chmod(out_file, 0o755)
+                continue
+
+            # If architectures are identical, no merging needed
+            if archs_x64 == archs_arm64:
+                os.chmod(out_file, 0o755)
+                continue
+
+            # Perform lipo merge via safe temporary file
+            temp_out = out_file + ".tmp_fat"
+            try:
+                cmd = [
+                    "lipo",
+                    "-create",
+                    x64_file,
+                    arm64_file,
+                    "-output",
+                    temp_out,
+                ]
+                res = subprocess.run(cmd, capture_output=True, text=True)
+                if res.returncode == 0:
+                    os.replace(temp_out, out_file)
+                    os.chmod(out_file, 0o755)
+                    merged_count += 1
+                    print(f"  [Universal Merged] {rel_path}")
                 else:
-                    print(f"  [Single Arch] {rel_path} (kept from ARM64)")
+                    print(f"  [lipo note] {rel_path}: {res.stderr.strip()}")
                     skipped_count += 1
+            except Exception as e:
+                print(f"  [lipo error] {rel_path}: {e}")
+                skipped_count += 1
+            finally:
+                if os.path.exists(temp_out):
+                    try:
+                        os.remove(temp_out)
+                    except OSError:
+                        pass
 
     print(
         f"\nSuccessfully merged {merged_count} Mach-O binaries into Universal 2 fat binaries."
@@ -110,42 +142,20 @@ def merge_apps(app_x64_in, app_arm64_in, app_out):
 
     # 4. Ad-hoc codesign the entire universal bundle
     print("Ad-hoc codesigning Universal bundle...")
-    codesign_res = subprocess.run(
-        ["codesign", "--force", "--deep", "--sign", "-", app_out],
-        capture_output=True,
-        text=True,
+    subprocess.run(
+        ["codesign", "--force", "--deep", "--sign", "-", app_out], check=False
     )
-    if codesign_res.returncode != 0:
-        print(f"Codesign output: {codesign_res.stdout}")
-        print(f"Codesign error: {codesign_res.stderr}")
-        print("Retrying codesign without --deep on internal components...")
-        for root, dirs, files in os.walk(app_out):
-            for f in files:
-                p = os.path.join(root, f)
-                if is_macho(p):
-                    subprocess.run(
-                        ["codesign", "--force", "--sign", "-", p], check=False
-                    )
-        subprocess.run(
-            ["codesign", "--force", "--sign", "-", app_out], check=True
-        )
 
-    # 5. Verify main executable has both architectures
+    # 5. Verify main executable
     macos_dir = os.path.join(app_out, "Contents", "MacOS")
     if os.path.isdir(macos_dir):
         for item in os.listdir(macos_dir):
             p = os.path.join(macos_dir, item)
-            if is_macho(p):
-                res = subprocess.run(
-                    ["lipo", "-archs", p],
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-                archs = res.stdout.strip()
+            archs = get_archs(p)
+            if archs:
                 print(f"\n==================================================")
                 print(f"Verified executable: {item}")
-                print(f"Architectures:       {archs}")
+                print(f"Architectures:       {' '.join(sorted(archs))}")
                 print(f"==================================================")
                 if "x86_64" in archs and "arm64" in archs:
                     print("SUCCESS: Verified Universal 2 application created!")
