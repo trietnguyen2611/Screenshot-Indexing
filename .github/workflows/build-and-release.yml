@@ -94,7 +94,8 @@ jobs:
           # Fix architecture mismatch for x86_64 builds on Apple Silicon
           if [ "${{ matrix.arch }}" = "x64" ]; then
             export ARCHFLAGS=-Wno-error=unused-command-line-argument-hard-error-in-future
-            pip install --upgrade -r requirements.txt
+            # Force installation of x86_64-compatible wheels
+            pip install --upgrade --only-binary :all: --python-version 311 -r requirements.txt
           else
             pip install --upgrade -r requirements.txt
           fi
