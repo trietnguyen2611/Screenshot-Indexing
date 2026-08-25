@@ -32,10 +32,10 @@ jobs:
         include:
           - arch: x64
             label: Intel
-            os: macos-13
+            os: macos-latest
           - arch: arm64
             label: AppleSilicon
-            os: macos-14
+            os: macos-latest
 
     steps:
       - name: Checkout repository
