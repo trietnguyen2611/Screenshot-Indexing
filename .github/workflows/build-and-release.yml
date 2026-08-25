@@ -33,7 +33,7 @@ jobs:
           - arch: x64
             pyinstaller_arch: x86_64
             label: Intel
-            os: macos-latest
+            os: macos-13
           - arch: arm64
             pyinstaller_arch: arm64
             label: AppleSilicon
