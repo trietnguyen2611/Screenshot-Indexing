@@ -31,9 +31,11 @@ jobs:
       matrix:
         include:
           - arch: x64
+            pyinstaller_arch: x86_64
             label: Intel
-            os: macos-14
+            os: macos-latest
           - arch: arm64
+            pyinstaller_arch: arm64
             label: AppleSilicon
             os: macos-latest
 
@@ -93,7 +95,7 @@ jobs:
 
       - name: Build macOS App with PyInstaller
         run: |
-          APP_VERSION="${{ steps.get_version.outputs.raw_version }}" pyinstaller --noconsole --name "Screenshot Indexing" --icon macapp_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
+          APP_VERSION="${{ steps.get_version.outputs.raw_version }}" pyinstaller --noconsole --target-arch ${{ matrix.pyinstaller_arch }} --name "Screenshot Indexing" --icon macapp_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
 
       - name: Update Info.plist & Ad-hoc Codesign
         run: |
