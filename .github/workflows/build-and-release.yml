@@ -23,7 +23,7 @@ permissions:
   contents: write
 
 jobs:
-  build-macos:
+  build-arch:
     name: Build macOS (${{ matrix.label }})
     runs-on: macos-latest
     strategy:
@@ -48,10 +48,9 @@ jobs:
           architecture: ${{ matrix.arch }}
           cache: 'pip'
 
-      - name: Determine Version & Changelog
+      - name: Determine Version
         id: get_version
         run: |
-          # 1. Determine Version
           if [ -n "${{ inputs.version }}" ]; then
             INPUT_VER="${{ inputs.version }}"
             [[ "$INPUT_VER" != v* ]] && VERSION="v${INPUT_VER}" || VERSION="${INPUT_VER}"
@@ -63,13 +62,79 @@ jobs:
             PY_VER=$(python3 -c "import re; m = re.search(r'VERSION\s*=\s*.*?([0-9]+\.[0-9]+\.[0-9]+)', open('app.py').read()); print(m.group(1) if m else '1.0.0')" 2>/dev/null || echo "1.0.0")
             VERSION="v${PY_VER}"
           fi
-          
           RAW_VERSION="${VERSION#v}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "raw_version=${RAW_VERSION}" >> $GITHUB_OUTPUT
-          echo "Building Version: ${VERSION} (${{ matrix.label }} - ${{ matrix.arch }})"
 
-          # 2. Determine Changelog Body
+      - name: Install dependencies & PyInstaller in Virtual Environment
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Build macOS App with PyInstaller
+        run: |
+          source .venv/bin/activate
+          APP_VERSION="${{ steps.get_version.outputs.raw_version }}" python -m PyInstaller --noconsole --name "Screenshot Indexing" --icon macapp_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
+
+      - name: Update Info.plist & Codesign
+        run: |
+          RAW_VER="${{ steps.get_version.outputs.raw_version }}"
+          PLIST_PATH="dist/Screenshot Indexing.app/Contents/Info.plist"
+          if [ -f "$PLIST_PATH" ]; then
+            plutil -replace CFBundleShortVersionString -string "$RAW_VER" "$PLIST_PATH"
+            plutil -replace CFBundleVersion -string "$RAW_VER" "$PLIST_PATH"
+            echo "Updated Info.plist version to $RAW_VER"
+          fi
+          codesign --force --deep --sign - "dist/Screenshot Indexing.app" || true
+
+      - name: Upload Architecture Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.arch }}
+          path: dist/Screenshot Indexing.app
+          if-no-files-found: error
+          retention-days: 1
+
+  package-universal:
+    name: Package Universal DMG & Release
+    needs: build-arch
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Intel App Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-x64
+          path: app_x64
+
+      - name: Download Apple Silicon App Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-arm64
+          path: app_arm64
+
+      - name: Determine Version & Changelog
+        id: get_version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            INPUT_VER="${{ inputs.version }}"
+            [[ "$INPUT_VER" != v* ]] && VERSION="v${INPUT_VER}" || VERSION="${INPUT_VER}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          elif [[ "$GITHUB_REF" =~ ^refs/tags/v ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            PY_VER=$(python3 -c "import re; m = re.search(r'VERSION\s*=\s*.*?([0-9]+\.[0-9]+\.[0-9]+)', open('app.py').read()); print(m.group(1) if m else '1.0.0')" 2>/dev/null || echo "1.0.0")
+            VERSION="v${PY_VER}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          
           if [ -n "${{ inputs.changelog }}" ]; then
             echo "body<<EOF" >> $GITHUB_OUTPUT
             echo "${{ inputs.changelog }}" >> $GITHUB_OUTPUT
@@ -84,50 +149,27 @@ jobs:
             fi
           fi
 
-      - name: Install dependencies & PyInstaller in Virtual Environment
+      - name: Merge into Universal App Bundle
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          mkdir -p dist_universal
+          python3 .github/scripts/merge_universal.py "app_x64" "app_arm64" "dist_universal/Screenshot Indexing.app"
 
-      - name: Build macOS App with PyInstaller
-        run: |
-          source .venv/bin/activate
-          APP_VERSION="${{ steps.get_version.outputs.raw_version }}" python -m PyInstaller --noconsole --name "Screenshot Indexing" --icon macapp_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
-
-      - name: Update Info.plist & Ad-hoc Codesign
-        run: |
-          RAW_VER="${{ steps.get_version.outputs.raw_version }}"
-          PLIST_PATH="dist/Screenshot Indexing.app/Contents/Info.plist"
-          if [ -f "$PLIST_PATH" ]; then
-            plutil -replace CFBundleShortVersionString -string "$RAW_VER" "$PLIST_PATH"
-            plutil -replace CFBundleVersion -string "$RAW_VER" "$PLIST_PATH"
-            echo "Updated Info.plist version to $RAW_VER"
-          fi
-          # Ad-hoc code signing
-          codesign --force --deep --sign - "dist/Screenshot Indexing.app" || true
-
-      - name: Package DMG
+      - name: Package Universal DMG
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
-          LABEL="${{ matrix.label }}"
           mkdir -p release
-
-          # Package as DMG with /Applications drag-and-drop shortcut
           mkdir -p dmg_root
-          cp -R "dist/Screenshot Indexing.app" dmg_root/
+          cp -R "dist_universal/Screenshot Indexing.app" dmg_root/
           ln -s /Applications dmg_root/Applications
-          hdiutil create -volname "Screenshot Indexing" -srcfolder dmg_root -ov -format UDZO "release/Screenshot-Indexing-${VERSION}-macOS-${LABEL}.dmg"
+          hdiutil create -volname "Screenshot Indexing" -srcfolder dmg_root -ov -format UDZO "release/Screenshot-Indexing-${VERSION}-macOS-Universal.dmg"
           rm -rf dmg_root
-
-          echo "Generated DMG package in release directory:"
+          echo "Generated Universal DMG package:"
           ls -lh release/
 
-      - name: Upload Artifacts
+      - name: Upload Universal DMG Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Screenshot-Indexing-${{ steps.get_version.outputs.version }}-macOS-${{ matrix.label }}
+          name: Screenshot-Indexing-${{ steps.get_version.outputs.version }}-macOS-Universal
           path: release/*
           if-no-files-found: error
           retention-days: 30
@@ -140,7 +182,7 @@ jobs:
           name: ${{ steps.get_version.outputs.version }}
           body: ${{ steps.get_version.outputs.body }}
           files: |
-            release/Screenshot-Indexing-${{ steps.get_version.outputs.version }}-macOS-${{ matrix.label }}.dmg
+            release/Screenshot-Indexing-${{ steps.get_version.outputs.version }}-macOS-Universal.dmg
           draft: false
           prerelease: false
           generate_release_notes: false

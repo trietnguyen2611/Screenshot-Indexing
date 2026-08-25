@@ -44,7 +44,7 @@ pyinstaller --noconsole --name "Screenshot Indexing" --icon macapp_icon.icns --a
 
 ```
 Screenshot-Indexing/
-├── .github/workflows/   # CI/CD auto build & release (Intel & Apple Silicon)
+├── .github/workflows/   # CI/CD auto build & release (Universal for Intel & Apple Silicon)
 ├── app.py               # Flask backend + PyWebView
 ├── macapp_icon.icns     # App icon
 ├── requirements.txt     # Python dependencies
