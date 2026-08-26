@@ -543,21 +543,19 @@ function initResizer() {
 
     if (!container || !sidebar || !resizer) return;
 
-    const getMinWidth = () => {
-        const containerWidth = container.getBoundingClientRect().width;
-        return Math.max(260, Math.round(containerWidth * 0.25));
-    };
+    const MIN_SIDEBAR_WIDTH = 290;
 
     // Restore saved sidebar width
     const savedWidth = localStorage.getItem('sidebar_width');
-    const minWidth = getMinWidth();
     if (savedWidth) {
         const parsed = parseInt(savedWidth, 10);
-        if (!isNaN(parsed) && parsed >= minWidth && parsed <= 650) {
+        if (!isNaN(parsed) && parsed >= MIN_SIDEBAR_WIDTH && parsed <= 650) {
             sidebar.style.width = `${parsed}px`;
         } else {
-            sidebar.style.width = `${minWidth}px`;
+            sidebar.style.width = `${MIN_SIDEBAR_WIDTH}px`;
         }
+    } else {
+        sidebar.style.width = `${MIN_SIDEBAR_WIDTH}px`;
     }
 
     let isDragging = false;
@@ -581,7 +579,7 @@ function initResizer() {
         if (!isDragging) return;
         const deltaX = e.clientX - startX;
         const containerWidth = container.getBoundingClientRect().width;
-        const minAllowed = Math.max(260, Math.round(containerWidth * 0.25)); // Limit at 2.5:7.5 ratio (min 25%)
+        const minAllowed = MIN_SIDEBAR_WIDTH;
         const maxAllowed = Math.min(650, containerWidth - 350);
         let newWidth = startWidth + deltaX;
 
