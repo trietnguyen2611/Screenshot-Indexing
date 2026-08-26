@@ -25,15 +25,19 @@ permissions:
 jobs:
   build-arch:
     name: Build macOS (${{ matrix.label }})
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - arch: x64
+          - target_arch: x86_64
+            python_arch: x64
             label: Intel
-          - arch: arm64
+            runner: macos-13
+          - target_arch: arm64
+            python_arch: arm64
             label: AppleSilicon
+            runner: macos-latest
 
     steps:
       - name: Checkout repository
@@ -45,7 +49,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          architecture: ${{ matrix.arch }}
+          architecture: ${{ matrix.python_arch }}
           cache: 'pip'
 
       - name: Determine Version
@@ -76,7 +80,15 @@ jobs:
       - name: Build macOS App with PyInstaller
         run: |
           source .venv/bin/activate
-          APP_VERSION="${{ steps.get_version.outputs.raw_version }}" python -m PyInstaller --noconsole --name "Screenshot Indexing" --icon macapp_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
+          APP_VERSION="${{ steps.get_version.outputs.raw_version }}" python -m PyInstaller \
+            --noconsole \
+            --name "Screenshot Indexing" \
+            --icon macapp_icon.icns \
+            --add-data "templates:templates" \
+            --add-data "static:static" \
+            --target-arch ${{ matrix.target_arch }} \
+            --noconfirm \
+            app.py
 
       - name: Update Info.plist & Codesign
         run: |
@@ -89,10 +101,27 @@ jobs:
           fi
           codesign --force --deep --sign - "dist/Screenshot Indexing.app" || true
 
+      - name: Verify Binary Architecture
+        run: |
+          MAIN_BIN="dist/Screenshot Indexing.app/Contents/MacOS/Screenshot Indexing"
+          if [ -f "$MAIN_BIN" ]; then
+            ARCHS=$(lipo -archs "$MAIN_BIN")
+            echo "Built binary architectures: $ARCHS"
+            EXPECTED="${{ matrix.target_arch }}"
+            if [[ "$ARCHS" != *"$EXPECTED"* ]]; then
+              echo "::error::Expected architecture '$EXPECTED' but got '$ARCHS'"
+              exit 1
+            fi
+            echo "Architecture verification passed: $EXPECTED found in $ARCHS"
+          else
+            echo "::error::Main binary not found at expected path"
+            exit 1
+          fi
+
       - name: Upload Architecture Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-${{ matrix.arch }}
+          name: app-${{ matrix.target_arch }}
           path: dist/Screenshot Indexing.app
           if-no-files-found: error
           retention-days: 1
@@ -110,7 +139,7 @@ jobs:
       - name: Download Intel App Artifact
         uses: actions/download-artifact@v4
         with:
-          name: app-x64
+          name: app-x86_64
           path: app_x64
 
       - name: Download Apple Silicon App Artifact

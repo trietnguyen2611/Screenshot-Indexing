@@ -40,6 +40,18 @@ def resolve_app_path(path):
     return path
 
 
+def find_main_executable(app_path):
+    """Find the main Mach-O executable inside a .app bundle."""
+    macos_dir = os.path.join(app_path, "Contents", "MacOS")
+    if not os.path.isdir(macos_dir):
+        return None
+    for item in os.listdir(macos_dir):
+        p = os.path.join(macos_dir, item)
+        if os.path.isfile(p) and not os.path.islink(p) and is_macho(p):
+            return p
+    return None
+
+
 def merge_apps(app_x64_in, app_arm64_in, app_out):
     app_x64 = resolve_app_path(app_x64_in)
     app_arm64 = resolve_app_path(app_arm64_in)
@@ -60,6 +72,39 @@ def merge_apps(app_x64_in, app_arm64_in, app_out):
 
     if os.path.exists(app_out):
         shutil.rmtree(app_out)
+
+    # 0. Validate that the two builds have different architectures
+    x64_main = find_main_executable(app_x64)
+    arm64_main = find_main_executable(app_arm64)
+
+    if x64_main and arm64_main:
+        x64_archs = get_archs(x64_main)
+        arm64_archs = get_archs(arm64_main)
+        print(f"  Intel build main executable archs:          {x64_archs}")
+        print(f"  Apple Silicon build main executable archs:  {arm64_archs}")
+
+        if x64_archs and arm64_archs and x64_archs == arm64_archs:
+            print(
+                f"\nERROR: Both builds have identical architectures ({x64_archs})!"
+            )
+            print(
+                "This usually means the Intel build ran on an ARM64 runner."
+            )
+            print(
+                "The resulting 'universal' binary would only support one architecture."
+            )
+            sys.exit(1)
+
+        if x64_archs and "x86_64" not in x64_archs:
+            print(
+                f"\nWARNING: Intel build does not contain x86_64 arch (has: {x64_archs})"
+            )
+        if arm64_archs and "arm64" not in arm64_archs:
+            print(
+                f"\nWARNING: ARM64 build does not contain arm64 arch (has: {arm64_archs})"
+            )
+    else:
+        print("WARNING: Could not locate main executable to validate architectures.")
 
     # 1. Base copy from Apple Silicon bundle
     print("Copying base application structure from Apple Silicon build...")
