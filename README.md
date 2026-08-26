@@ -35,7 +35,7 @@ python app.py
 ## Build macOS App
 
 ```bash
-pyinstaller --noconsole --name "Screenshot Indexing" --icon macapp_icon.icns --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
+pyinstaller --noconsole --name "Screenshot Indexing" --icon macapp_icon.icns --osx-bundle-identifier "com.trietnguyen2611.screenshotindexing" --add-data "templates:templates" --add-data "static:static" --noconfirm app.py
 ```
 
 ---

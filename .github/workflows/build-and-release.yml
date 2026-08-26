@@ -91,6 +91,7 @@ jobs:
             --icon macapp_icon.icns \
             --add-data "templates:templates" \
             --add-data "static:static" \
+            --osx-bundle-identifier "com.trietnguyen2611.screenshotindexing" \
             --target-arch arm64 \
             --noconfirm \
             app.py
@@ -113,6 +114,7 @@ jobs:
             --icon macapp_icon.icns \
             --add-data "templates:templates" \
             --add-data "static:static" \
+            --osx-bundle-identifier "com.trietnguyen2611.screenshotindexing" \
             --target-arch x86_64 \
             --noconfirm \
             app.py
@@ -136,7 +138,9 @@ jobs:
           if [ -f "$PLIST_PATH" ]; then
             plutil -replace CFBundleShortVersionString -string "$RAW_VER" "$PLIST_PATH"
             plutil -replace CFBundleVersion -string "$RAW_VER" "$PLIST_PATH"
-            echo "Updated Info.plist version to $RAW_VER"
+            plutil -replace CFBundleIdentifier -string "com.trietnguyen2611.screenshotindexing" "$PLIST_PATH"
+            plutil -replace NSHumanReadableCopyright -string "Copyright © 2026 trietnguyen2611. All rights reserved." "$PLIST_PATH"
+            echo "Updated Info.plist version to $RAW_VER and identifier to com.trietnguyen2611.screenshotindexing"
           fi
           xattr -cr "dist-universal/Screenshot Indexing.app"
           codesign --force --deep --sign - "dist-universal/Screenshot Indexing.app"

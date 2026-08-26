@@ -5,7 +5,7 @@ import sys
 import unicodedata
 from flask import Flask, render_template, jsonify, request, send_from_directory
 
-VERSION = os.environ.get("APP_VERSION", "1.0.0").lstrip("v")
+VERSION = os.environ.get("APP_VERSION", "1.0.1").lstrip("v")
 
 if getattr(sys, 'frozen', False):
     if sys.platform == 'darwin':
