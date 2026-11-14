@@ -14,8 +14,56 @@
     <!-- Header -->
     <header class="header">
         <div class="header-brand">
-            <h1 class="header-title">Screenshot Indexing</h1>
+            <nav class="header-tabs" role="tablist" aria-label="Workspace Tabs">
+                <button type="button" id="tab-btn-indexing" class="header-title header-tab active" role="tab"
+                    aria-selected="true" aria-controls="view-indexing" onclick="switchTab('indexing')">
+                    <span data-i18n="tab_indexing">Screenshot Indexing</span>
+                </button>
+                <button type="button" id="tab-btn-capture" class="header-tab" role="tab"
+                    aria-selected="false" aria-controls="view-capture" onclick="switchTab('capture')">
+                    <span id="header-capture-dot" class="header-capture-dot" aria-hidden="true"></span>
+                    <span data-i18n="tab_auto_capture">Auto Capture</span>
+                </button>
+            </nav>
             <span class="app-version-badge">v{{ version | default('1.0.3') }}</span>
+        </div>
+        <div class="header-actions">
+            <div class="header-lang-select-container">
+                <svg class="lang-select-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+                <select id="header-lang-select" class="lang-select header-lang-select" onchange="setLanguage(this.value)"
+                    aria-label="Select Language">
+                    <option value="en">EN</option>
+                    <option value="vi">VI</option>
+                </select>
+                <svg class="lang-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </div>
+            <button type="button" id="header-theme-toggle-btn" class="header-theme-btn" onclick="toggleTheme()"
+                title="Toggle Light / Dark theme" data-i18n-title="theme_toggle">
+                <svg class="theme-icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="23" />
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                    <line x1="1" y1="12" x2="3" y2="12" />
+                    <line x1="21" y1="12" x2="23" y2="12" />
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+                <svg class="theme-icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+            </button>
         </div>
     </header>
 
@@ -25,221 +73,640 @@
     <!-- Main -->
     <main class="main">
 
-        <div class="split-container" id="split-container">
+        <!-- Tab 1: Screenshot Indexing (Batch Rename) -->
+        <div id="view-indexing" class="tab-view active" role="tabpanel" aria-labelledby="tab-btn-indexing">
+            <div class="split-container" id="split-container">
 
-            <!-- Left Panel: Sidebar (Thư mục, Phạm vi đánh số, Ghi chú) -->
-            <div class="sidebar-panel" id="sidebar-panel">
+                <!-- Left Panel: Sidebar (Folder, Numbering Range, Notes) -->
+                <div class="sidebar-panel" id="sidebar-panel">
 
-                <!-- Section: Folder -->
-                <section class="section">
-                    <div class="section-header">
-                        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                        </svg>
-                        <span class="section-title"><span data-i18n="folder">Folder</span></span>
-                    </div>
-                    <div class="card">
-                        <div class="folder-row">
-                            <div class="folder-input-wrapper">
-                                <svg class="folder-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path
-                                        d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                                </svg>
-                                <input id="folder-input" type="text" class="folder-input"
-                                    placeholder="Enter folder path..." data-i18n-placeholder="folder_placeholder"
-                                    onchange="loadFolder()" onkeydown="if(event.key==='Enter') loadFolder()">
-                            </div>
-                            <div class="folder-buttons">
-                                <button class="btn btn-secondary" onclick="openBrowser()">
-                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    <!-- Section: Folder -->
+                    <section class="section">
+                        <div class="section-header">
+                            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                            </svg>
+                            <span class="section-title"><span data-i18n="folder">Folder</span></span>
+                        </div>
+                        <div class="card">
+                            <div class="folder-row">
+                                <div class="folder-input-wrapper">
+                                    <svg class="folder-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <path
                                             d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                                     </svg>
-                                    <span data-i18n="browse">Browse</span>
-                                </button>
-                                <button class="btn btn-secondary" onclick="refreshFiles()">
-                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <polyline points="23 4 23 10 17 10" />
-                                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                                    </svg>
-                                    <span data-i18n="refresh">Refresh</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Section: Range -->
-                <section class="section">
-                    <div class="section-header">
-                        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="4" y1="9" x2="20" y2="9" />
-                            <line x1="4" y1="15" x2="20" y2="15" />
-                            <line x1="10" y1="3" x2="8" y2="21" />
-                            <line x1="16" y1="3" x2="14" y2="21" />
-                        </svg>
-                        <span class="section-title"><span data-i18n="range">Numbering Range</span></span>
-                    </div>
-                    <div class="card">
-                        <div class="range-row">
-                            <div class="range-inputs">
-                                <div class="range-group">
-                                    <span class="range-label"><span data-i18n="from">From</span></span>
-                                    <input id="input-start" type="number" class="range-input" placeholder="..." min="0">
+                                    <input id="folder-input" type="text" class="folder-input"
+                                        placeholder="Enter folder path..." data-i18n-placeholder="folder_placeholder"
+                                        onchange="loadFolder()" onkeydown="if(event.key==='Enter') loadFolder()">
                                 </div>
-                                <span class="range-dash">—</span>
-                                <div class="range-group">
-                                    <span class="range-label"><span data-i18n="to">To</span></span>
-                                    <input id="input-end" type="number" class="range-input" placeholder="..." min="0">
+                                <div class="folder-buttons">
+                                    <button type="button" class="btn btn-secondary" onclick="openBrowser('indexing')">
+                                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path
+                                                d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                                        </svg>
+                                        <span data-i18n="browse">Browse</span>
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="refreshFiles()">
+                                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="23 4 23 10 17 10" />
+                                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                                        </svg>
+                                        <span data-i18n="refresh">Refresh</span>
+                                    </button>
                                 </div>
                             </div>
-                            <div class="range-actions">
-                                <button class="btn btn-secondary" onclick="preview()">
-                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                        <circle cx="12" cy="12" r="3" />
-                                    </svg>
-                                    <span data-i18n="preview">Preview</span>
-                                </button>
-                                <button id="btn-rename" class="btn btn-primary" onclick="requestRename()">
-                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                    </svg>
-                                    <span data-i18n="rename">Rename</span>
-                                </button>
+                        </div>
+                    </section>
+
+                    <!-- Section: Range -->
+                    <section class="section">
+                        <div class="section-header">
+                            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="4" y1="9" x2="20" y2="9" />
+                                <line x1="4" y1="15" x2="20" y2="15" />
+                                <line x1="10" y1="3" x2="8" y2="21" />
+                                <line x1="16" y1="3" x2="14" y2="21" />
+                            </svg>
+                            <span class="section-title"><span data-i18n="range">Numbering Range</span></span>
+                        </div>
+                        <div class="card">
+                            <div class="range-row">
+                                <div class="range-inputs">
+                                    <div class="range-group">
+                                        <span class="range-label"><span data-i18n="from">From</span></span>
+                                        <input id="input-start" type="number" class="range-input" placeholder="..." min="0">
+                                    </div>
+                                    <span class="range-dash">—</span>
+                                    <div class="range-group">
+                                        <span class="range-label"><span data-i18n="to">To</span></span>
+                                        <input id="input-end" type="number" class="range-input" placeholder="..." min="0">
+                                    </div>
+                                </div>
+                                <div class="range-actions">
+                                    <button type="button" class="btn btn-secondary" onclick="preview()">
+                                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
+                                        <span data-i18n="preview">Preview</span>
+                                    </button>
+                                    <button type="button" id="btn-rename" class="btn btn-primary" onclick="requestRename()">
+                                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                        </svg>
+                                        <span data-i18n="rename">Rename</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </section>
+                    </section>
 
-                <!-- Section: Notes -->
-                <section class="section section-notes">
-                    <div class="section-header">
-                        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                            <line x1="16" y1="13" x2="8" y2="13" />
-                            <line x1="16" y1="17" x2="8" y2="17" />
-                            <polyline points="10 9 9 9 8 9" />
-                        </svg>
-                        <span class="section-title"><span data-i18n="notes">Notes</span></span>
-                    </div>
-                    <div class="card notes-card">
-                        <textarea id="notes-input" class="notes-input" placeholder="Enter notes here..."
-                            data-i18n-placeholder="notes_placeholder" oninput="saveNotes()"></textarea>
-
-                        <button id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleTheme()"
-                            title="Toggle Light / Dark theme" data-i18n-title="theme_toggle">
-                            <svg class="theme-icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="5" />
-                                <line x1="12" y1="1" x2="12" y2="3" />
-                                <line x1="12" y1="21" x2="12" y2="23" />
-                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                                <line x1="1" y1="12" x2="3" y2="12" />
-                                <line x1="21" y1="12" x2="23" y2="12" />
-                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                    <!-- Section: Notes -->
+                    <section class="section section-notes">
+                        <div class="section-header">
+                            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                                <polyline points="10 9 9 9 8 9" />
                             </svg>
-                            <svg class="theme-icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                            </svg>
-                        </button>
-                    </div>
-                </section>
+                            <span class="section-title"><span data-i18n="notes">Notes</span></span>
+                        </div>
+                        <div class="card notes-card">
+                            <textarea id="notes-input" class="notes-input" placeholder="Enter notes here..."
+                                data-i18n-placeholder="notes_placeholder" oninput="saveNotes()"></textarea>
 
-                <!-- Section: Preferences (Language Select) -->
-                <div class="sidebar-prefs">
-                    <div class="lang-select-container">
-                        <svg class="lang-select-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="2" y1="12" x2="22" y2="12"></line>
-                            <path
-                                d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
-                            </path>
-                        </svg>
-                        <select id="lang-select" class="lang-select" onchange="setLanguage(this.value)"
-                            aria-label="Select Language">
-                            <option value="en">English</option>
-                            <option value="vi">Tiếng Việt</option>
-                        </select>
-                        <svg class="lang-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
+                            <button type="button" id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleTheme()"
+                                title="Toggle Light / Dark theme" data-i18n-title="theme_toggle">
+                                <svg class="theme-icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="5" />
+                                    <line x1="12" y1="1" x2="12" y2="3" />
+                                    <line x1="12" y1="21" x2="12" y2="23" />
+                                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                                    <line x1="1" y1="12" x2="3" y2="12" />
+                                    <line x1="21" y1="12" x2="23" y2="12" />
+                                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                                </svg>
+                                <svg class="theme-icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- Section: Preferences (Language Select) -->
+                    <div class="sidebar-prefs">
+                        <div class="lang-select-container">
+                            <svg class="lang-select-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="2" y1="12" x2="22" y2="12"></line>
+                                <path
+                                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
+                                </path>
+                            </svg>
+                            <select id="lang-select" class="lang-select" onchange="setLanguage(this.value)"
+                                aria-label="Select Language">
+                                <option value="en">English</option>
+                                <option value="vi">Tiếng Việt</option>
+                            </select>
+                            <svg class="lang-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </div>
                     </div>
+
+                </div>
+
+                <!-- Resizer Handle -->
+                <div class="resizer-handle" id="resizer-handle" title="Drag to resize" data-i18n-title="resizer_title">
+                    <div class="resizer-line"></div>
+                </div>
+
+                <!-- Right Panel: Content (Screenshot File List) -->
+                <div class="content-panel" id="content-panel">
+
+                    <!-- Section: File List -->
+                    <section class="section section-file-list">
+                        <div class="section-header">
+                            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="8" y1="6" x2="21" y2="6" />
+                                <line x1="8" y1="12" x2="21" y2="12" />
+                                <line x1="8" y1="18" x2="21" y2="18" />
+                                <line x1="3" y1="6" x2="3.01" y2="6" />
+                                <line x1="3" y1="12" x2="3.01" y2="12" />
+                                <line x1="3" y1="18" x2="3.01" y2="18" />
+                            </svg>
+                            <span class="section-title"><span data-i18n="file_list">Screenshot File List</span></span>
+                            <span id="file-count" class="section-badge"></span>
+                        </div>
+
+                        <!-- Table -->
+                        <div id="table-wrapper" class="table-wrapper" style="display: none;">
+                            <div class="table-scroll">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th><span data-i18n="original_name">Original Name</span></th>
+                                            <th><span data-i18n="new_name">New Name</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="file-tbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div id="empty-state" class="card empty-state">
+                            <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                <polyline points="21 15 16 10 5 21" />
+                            </svg>
+                            <div class="empty-state-title"><span data-i18n="empty_title">No files yet</span></div>
+                            <div class="empty-state-text"><span data-i18n="empty_desc">Select a folder containing screenshot
+                                    files to start</span></div>
+                        </div>
+                    </section>
+
                 </div>
 
             </div>
+        </div>
 
-            <!-- Resizer Handle -->
-            <div class="resizer-handle" id="resizer-handle" title="Kéo để điều chỉnh kích thước">
-                <div class="resizer-line"></div>
-            </div>
+        <!-- Tab 2: Auto Capture -->
+        <div id="view-capture" class="tab-view" role="tabpanel" aria-labelledby="tab-btn-capture" style="display: none;">
+            <div class="split-container" id="capture-split-container">
 
-            <!-- Right Panel: Content (Danh sách file screenshot) -->
-            <div class="content-panel" id="content-panel">
+                <!-- Left Panel: Auto Capture Settings & Controls -->
+                <div class="sidebar-panel capture-sidebar-panel" id="capture-sidebar-panel">
 
-                <!-- Section: File List -->
-                <section class="section section-file-list">
-                    <div class="section-header">
-                        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="8" y1="6" x2="21" y2="6" />
-                            <line x1="8" y1="12" x2="21" y2="12" />
-                            <line x1="8" y1="18" x2="21" y2="18" />
-                            <line x1="3" y1="6" x2="3.01" y2="6" />
-                            <line x1="3" y1="12" x2="3.01" y2="12" />
-                            <line x1="3" y1="18" x2="3.01" y2="18" />
-                        </svg>
-                        <span class="section-title"><span data-i18n="file_list">Screenshot File List</span></span>
-                        <span id="file-count" class="section-badge"></span>
-                    </div>
+                    <!-- Section: Save Folder -->
+                    <section class="section">
+                        <div class="section-header">
+                            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                            </svg>
+                            <span class="section-title"><span data-i18n="capture_save_folder">Save Folder</span></span>
+                        </div>
+                        <div class="card">
+                            <div class="folder-row">
+                                <div class="folder-input-wrapper">
+                                    <svg class="folder-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                                    </svg>
+                                    <input id="capture-folder-input" type="text" class="folder-input"
+                                        placeholder="Enter save folder path..." data-i18n-placeholder="capture_folder_placeholder"
+                                        onchange="onCaptureFolderCommit()"
+                                        onkeydown="if(event.key==='Enter'){event.preventDefault(); onCaptureFolderCommit();}">
+                                </div>
+                                <div class="folder-buttons">
+                                    <button type="button" class="btn btn-secondary" onclick="openBrowser('capture')">
+                                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                                        </svg>
+                                        <span data-i18n="browse">Browse</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
 
-                    <!-- Table -->
-                    <div id="table-wrapper" class="table-wrapper" style="display: none;">
-                        <div class="table-scroll">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th><span data-i18n="original_name">Original Name</span></th>
-                                        <th><span data-i18n="new_name">New Name</span></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="file-tbody"></tbody>
-                            </table>
+                    <!-- Section: Fixed Capture Region -->
+                    <section class="section">
+                        <div class="section-header">
+                            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M6 2v14a2 2 0 0 0 2 2h14" />
+                                <path d="M18 22V8a2 2 0 0 0-2-2H2" />
+                            </svg>
+                            <span class="section-title"><span data-i18n="capture_region">Capture Region</span></span>
+                        </div>
+                        <div class="card capture-form-stack">
+                            <div class="region-grid">
+                                <label class="coord-field">
+                                    <span class="coord-label">X</span>
+                                    <input id="reg-x" type="number" class="range-input coord-input" value="100"
+                                        oninput="onRegionInputLive()" onchange="onRegionInputCommit()">
+                                </label>
+                                <label class="coord-field">
+                                    <span class="coord-label">Y</span>
+                                    <input id="reg-y" type="number" class="range-input coord-input" value="100"
+                                        oninput="onRegionInputLive()" onchange="onRegionInputCommit()">
+                                </label>
+                                <label class="coord-field">
+                                    <span class="coord-label">W</span>
+                                    <input id="reg-w" type="number" class="range-input coord-input" min="10" value="800"
+                                        oninput="onRegionInputLive()" onchange="onRegionInputCommit()">
+                                </label>
+                                <label class="coord-field">
+                                    <span class="coord-label">H</span>
+                                    <input id="reg-h" type="number" class="range-input coord-input" min="10" value="600"
+                                        oninput="onRegionInputLive()" onchange="onRegionInputCommit()">
+                                </label>
+                            </div>
+                            <div class="capture-btn-stack">
+                                <div class="capture-btn-row">
+                                    <button type="button" id="btn-capture-preview" class="btn btn-secondary"
+                                        onclick="capturePreviewScreen(0.2)">
+                                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                            <circle cx="12" cy="13" r="4" />
+                                        </svg>
+                                        <span data-i18n="btn_test_shot_now">Test Shot Now</span>
+                                    </button>
+                                    <button type="button" id="btn-capture-preview-delay" class="btn btn-secondary"
+                                        onclick="capturePreviewScreen(2.0)">
+                                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <polyline points="12 6 12 12 16 14" />
+                                        </svg>
+                                        <span data-i18n="btn_test_shot_2s">Test Shot in 2s</span>
+                                    </button>
+                                </div>
+                                <button type="button" id="btn-pick-region-overlay" class="btn btn-secondary btn-full"
+                                    onclick="pickOverlay('region')">
+                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 2" />
+                                    </svg>
+                                    <span data-i18n="btn_pick_region_overlay">Screen Overlay Picker</span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section: Timer, Shot Limit & Sound -->
+                    <section class="section">
+                        <div class="section-header">
+                            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            <span class="section-title"><span data-i18n="capture_timer_sound">Timer & Shutter</span></span>
+                        </div>
+                        <div class="card capture-form-stack">
+                            <div class="capture-field-col">
+                                <div class="capture-field-head">
+                                    <label class="capture-field-label" for="capture-interval">
+                                        <span data-i18n="capture_interval">Interval (1–10s)</span>
+                                    </label>
+                                    <span class="capture-unit-hint">s</span>
+                                </div>
+                                <div class="capture-slider-pair">
+                                    <input id="capture-interval-range" type="range" class="apple-slider" min="1" max="10" step="1"
+                                        value="3" oninput="syncIntervalFromRange(this.value)"
+                                        onchange="saveCaptureSettingsFromUI()">
+                                    <input id="capture-interval" type="number" class="range-input capture-num-sm" min="1" max="10"
+                                        step="1" value="3" oninput="syncIntervalFromNumber(this.value, false)"
+                                        onchange="syncIntervalFromNumber(this.value, true)">
+                                </div>
+                            </div>
+                            <div class="capture-field-inline">
+                                <label class="capture-field-label" for="capture-max-shots">
+                                    <span data-i18n="capture_max_shots">Shot Limit</span>
+                                </label>
+                                <input id="capture-max-shots" type="number" class="range-input capture-num-md" min="0" step="1"
+                                    placeholder="0 = ∞" data-i18n-placeholder="capture_max_shots_placeholder"
+                                    onchange="onMaxShotsCommit()">
+                            </div>
+                            <div class="capture-toggle-row">
+                                <label class="capture-field-label" for="capture-sound-toggle">
+                                    <span data-i18n="capture_sound_label">macOS Shutter Sound</span>
+                                </label>
+                                <label class="apple-switch">
+                                    <input id="capture-sound-toggle" type="checkbox" checked onchange="saveCaptureSettingsFromUI()">
+                                    <span class="apple-switch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section: Auto Page-Turn -->
+                    <section class="section">
+                        <div class="section-header">
+                            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                            </svg>
+                            <span class="section-title"><span data-i18n="page_turn_title">Auto Page-Turn</span></span>
+                        </div>
+                        <div class="card capture-form-stack">
+                            <div class="capture-toggle-row">
+                                <label class="capture-field-label" for="page-turn-enabled">
+                                    <span data-i18n="page_turn_enable">Enable auto page-turn</span>
+                                </label>
+                                <label class="apple-switch">
+                                    <input id="page-turn-enabled" type="checkbox" checked onchange="onPageTurnEnabledChange()">
+                                    <span class="apple-switch-slider"></span>
+                                </label>
+                            </div>
+
+                            <div id="page-turn-config-body" class="page-turn-config-body">
+                                <div class="segmented-control">
+                                    <button type="button" id="btn-pt-mode-keyboard" class="segmented-btn active"
+                                        onclick="setPageTurnMode('keyboard')">
+                                        <span data-i18n="pt_mode_keyboard">Key Shortcut</span>
+                                    </button>
+                                    <button type="button" id="btn-pt-mode-click" class="segmented-btn"
+                                        onclick="setPageTurnMode('click')">
+                                        <span data-i18n="pt_mode_click">Click Point</span>
+                                    </button>
+                                </div>
+
+                                <!-- Keyboard Panel -->
+                                <div id="pt-panel-keyboard" class="pt-mode-panel">
+                                    <label class="capture-sub-label" for="key-recorder-input">
+                                        <span data-i18n="pt_key_recorder_label">Sample Key (click & press any key)</span>
+                                    </label>
+                                    <input id="key-recorder-input" type="text" class="key-recorder-input" readonly
+                                        value="→ ArrowRight" placeholder="Click & press key..."
+                                        data-i18n-placeholder="pt_key_recorder_placeholder"
+                                        title="Click here and press any key" data-i18n-title="pt_key_recorder_title">
+
+                                    <label class="capture-sub-label" for="page-turn-key-preset">
+                                        <span data-i18n="pt_key_preset_label">Quick Preset</span>
+                                    </label>
+                                    <div class="lang-select-container compact-select-container">
+                                        <select id="page-turn-key-preset" class="lang-select compact-select"
+                                            onchange="onKeyPresetChange(this.value)">
+                                            <option value="ArrowRight">→ ArrowRight</option>
+                                            <option value="Space">␣ Space</option>
+                                            <option value="PageDown">⇟ PageDown</option>
+                                            <option value="ArrowDown">↓ ArrowDown</option>
+                                            <option value="ArrowLeft">← ArrowLeft</option>
+                                            <option value="ArrowUp">↑ ArrowUp</option>
+                                            <option value="Enter">↵ Enter</option>
+                                            <option value="" data-i18n="pt_key_custom_option">Custom key</option>
+                                        </select>
+                                        <svg class="lang-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="6 9 12 15 18 9"></polyline>
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                <!-- Click Panel -->
+                                <div id="pt-panel-click" class="pt-mode-panel" style="display: none;">
+                                    <div class="region-grid click-coord-grid">
+                                        <label class="coord-field">
+                                            <span class="coord-label">X</span>
+                                            <input id="click-x" type="number" class="range-input coord-input" value="500"
+                                                oninput="onClickPointInputLive()" onchange="onClickPointInputCommit()">
+                                        </label>
+                                        <label class="coord-field">
+                                            <span class="coord-label">Y</span>
+                                            <input id="click-y" type="number" class="range-input coord-input" value="500"
+                                                oninput="onClickPointInputLive()" onchange="onClickPointInputCommit()">
+                                        </label>
+                                    </div>
+                                    <div class="capture-btn-row">
+                                        <button type="button" id="btn-canvas-mode-click" class="btn btn-secondary"
+                                            onclick="activateCanvasClickTool()">
+                                            <span data-i18n="btn_set_click_canvas">Pick on Canvas</span>
+                                        </button>
+                                        <button type="button" id="btn-pick-click-overlay" class="btn btn-secondary"
+                                            onclick="pickOverlay('click')">
+                                            <span data-i18n="btn_pick_click_overlay">Screen Overlay</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section: Start / Stop, Live Status & Permissions -->
+                    <section class="section">
+                        <div class="section-header">
+                            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="5 3 19 12 5 21 5 3" />
+                            </svg>
+                            <span class="section-title"><span data-i18n="capture_controls">Capture Control</span></span>
+                        </div>
+                        <div class="card capture-form-stack">
+                            <div class="capture-control-buttons">
+                                <button type="button" id="btn-capture-start" class="btn btn-primary" onclick="startCapture()">
+                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round">
+                                        <polygon points="5 3 19 12 5 21 5 3" />
+                                    </svg>
+                                    <span data-i18n="btn_capture_start">Start Capture</span>
+                                </button>
+                                <button type="button" id="btn-capture-stop" class="btn btn-stop" onclick="stopCapture()" disabled>
+                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="6" y="6" width="12" height="12" rx="1" />
+                                    </svg>
+                                    <span data-i18n="btn_capture_stop">Stop</span>
+                                </button>
+                            </div>
+
+                            <div id="capture-status-card" class="capture-status-card">
+                                <div class="capture-status-row">
+                                    <span class="capture-status-phase-wrap">
+                                        <span id="capture-status-dot" class="capture-status-dot"></span>
+                                        <span id="capture-status-phase" class="capture-status-phase" data-i18n="phase_idle">Ready</span>
+                                    </span>
+                                    <span id="capture-status-counter" class="capture-status-counter">0 / ∞</span>
+                                </div>
+                                <div id="capture-status-error" class="capture-status-error" style="display: none;"></div>
+                            </div>
+
+                            <div id="capture-permissions-box" class="capture-permissions-box">
+                                <div class="perm-row">
+                                    <span class="perm-label" data-i18n="perm_screen_recording">Screen Recording</span>
+                                    <span id="perm-screen-badge" class="perm-badge perm-unknown">—</span>
+                                </div>
+                                <div class="perm-row">
+                                    <span class="perm-label" data-i18n="perm_accessibility">Accessibility</span>
+                                    <span id="perm-access-badge" class="perm-badge perm-unknown">—</span>
+                                </div>
+                                <button type="button" id="btn-check-permissions" class="btn btn-secondary btn-full btn-compact"
+                                    onclick="requestCapturePermissions(true)">
+                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                    </svg>
+                                    <span data-i18n="btn_check_permissions">Check Permissions</span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                </div>
+
+                <!-- Resizer Handle -->
+                <div class="resizer-handle" id="capture-resizer-handle" title="Drag to resize" data-i18n-title="resizer_title">
+                    <div class="resizer-line"></div>
+                </div>
+
+                <!-- Right Panel: Interactive Canvas & Live View -->
+                <div class="content-panel capture-content-panel" id="capture-content-panel">
+
+                    <!-- Toolbar -->
+                    <div class="capture-toolbar">
+                        <div class="capture-toolbar-group">
+                            <div class="segmented-control segmented-control-inline">
+                                <button type="button" id="btn-canvas-tool-region" class="segmented-btn active"
+                                    onclick="setCanvasTool('region')">
+                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M6 2v14a2 2 0 0 0 2 2h14" />
+                                        <path d="M18 22V8a2 2 0 0 0-2-2H2" />
+                                    </svg>
+                                    <span data-i18n="tool_select_region">Select Region</span>
+                                </button>
+                                <button type="button" id="btn-canvas-tool-click" class="segmented-btn"
+                                    onclick="setCanvasTool('click')">
+                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <circle cx="12" cy="12" r="2" />
+                                        <line x1="12" y1="2" x2="12" y2="6" />
+                                        <line x1="12" y1="18" x2="12" y2="22" />
+                                        <line x1="2" y1="12" x2="6" y2="12" />
+                                        <line x1="18" y1="12" x2="22" y2="12" />
+                                    </svg>
+                                    <span data-i18n="tool_set_click">Set Click Point</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="capture-toolbar-group capture-toolbar-right">
+                            <span id="canvas-scale-badge" class="image-counter-badge canvas-scale-badge">—</span>
+                            <div class="segmented-control segmented-control-inline">
+                                <button type="button" id="btn-view-mode-canvas" class="segmented-btn active"
+                                    onclick="setCaptureViewMode('canvas')">
+                                    <span data-i18n="view_canvas">Interactive Canvas</span>
+                                </button>
+                                <button type="button" id="btn-view-mode-live" class="segmented-btn"
+                                    onclick="setCaptureViewMode('live')">
+                                    <span data-i18n="view_live_shot">Latest Shot</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Empty State -->
-                    <div id="empty-state" class="card empty-state">
-                        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                            <circle cx="8.5" cy="8.5" r="1.5" />
-                            <polyline points="21 15 16 10 5 21" />
-                        </svg>
-                        <div class="empty-state-title"><span data-i18n="empty_title">No files yet</span></div>
-                        <div class="empty-state-text"><span data-i18n="empty_desc">Select a folder containing screenshot
-                                files to start</span></div>
+                    <!-- Interactive Canvas Container -->
+                    <div id="canvas-view-container" class="capture-stage-card">
+                        <div id="capture-canvas-stage" class="capture-canvas-stage">
+                            <canvas id="capture-canvas" style="display: none;"></canvas>
+                            <div id="canvas-empty-hint" class="empty-state">
+                                <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                                    <line x1="8" y1="21" x2="16" y2="21" />
+                                    <line x1="12" y1="17" x2="12" y2="21" />
+                                </svg>
+                                <div class="empty-state-title"><span data-i18n="canvas_empty_title">No screen preview yet</span></div>
+                                <div class="empty-state-text"><span data-i18n="canvas_empty_desc">Take a test shot to preview your screen and draw the region or click target</span></div>
+                                <div class="canvas-empty-actions">
+                                    <button type="button" class="btn btn-primary" onclick="capturePreviewScreen(0.2)">
+                                        <span data-i18n="btn_test_shot_now">Test Shot Now</span>
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" onclick="capturePreviewScreen(2.0)">
+                                        <span data-i18n="btn_test_shot_2s">Test Shot in 2s</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="capture-canvas-footer">
+                            <span id="canvas-coord-summary" class="canvas-coord-summary">—</span>
+                            <span class="canvas-hint-text" data-i18n="canvas_drag_hint">Drag to set region or click to place page-turn target</span>
+                        </div>
                     </div>
-                </section>
+
+                    <!-- Live Capture View -->
+                    <div id="live-capture-view" class="capture-stage-card" style="display: none;">
+                        <div class="live-capture-header">
+                            <span class="live-capture-title" data-i18n="live_latest_label">Latest Captured Shot</span>
+                            <span id="live-latest-filename" class="live-filename-pill">—</span>
+                        </div>
+                        <div class="live-capture-stage">
+                            <img id="live-latest-img" src="" alt="Latest Captured Shot" style="display: none;" />
+                            <div id="live-empty-hint" class="empty-state">
+                                <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                    <circle cx="12" cy="13" r="4" />
+                                </svg>
+                                <div class="empty-state-title"><span data-i18n="live_empty_title">Waiting for captured shots</span></div>
+                                <div class="empty-state-text"><span data-i18n="live_empty_desc">Start auto-capture to preview each screenshot live as it is saved</span></div>
+                            </div>
+                        </div>
+                        <div id="live-recent-list" class="live-recent-list"></div>
+                    </div>
+
+                </div>
 
             </div>
-
         </div>
 
     </main>
@@ -249,7 +716,7 @@
         <div class="modal">
             <div class="modal-header">
                 <h2 class="modal-title"><span data-i18n="modal_select_folder">Select Folder</span></h2>
-                <button class="modal-close" onclick="closeBrowser()">
+                <button type="button" class="modal-close" onclick="closeBrowser()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                         stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" />
@@ -259,7 +726,7 @@
             </div>
             <div class="modal-path" id="modal-current-path">/</div>
             <div class="modal-nav">
-                <button class="btn btn-utility" id="btn-parent" onclick="browseParent()">
+                <button type="button" class="btn btn-utility" id="btn-parent" onclick="browseParent()">
                     <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="15 18 9 12 15 6" />
@@ -269,8 +736,8 @@
             </div>
             <div class="modal-list" id="modal-dir-list"></div>
             <div class="modal-footer">
-                <button class="btn btn-utility" onclick="closeBrowser()"><span data-i18n="cancel">Cancel</span></button>
-                <button class="btn btn-primary" onclick="selectFolder()"><span data-i18n="select_this_folder">Select
+                <button type="button" class="btn btn-utility" onclick="closeBrowser()"><span data-i18n="cancel">Cancel</span></button>
+                <button type="button" class="btn btn-primary" onclick="selectFolder()"><span data-i18n="select_this_folder">Select
                         this folder</span></button>
             </div>
         </div>
@@ -281,7 +748,7 @@
         <div class="modal confirm-modal">
             <div class="modal-header">
                 <h2 class="modal-title"><span data-i18n="confirm_rename">Confirm Rename</span></h2>
-                <button class="modal-close" onclick="closeConfirmModal()">
+                <button type="button" class="modal-close" onclick="closeConfirmModal()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                         stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" />
@@ -319,9 +786,9 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-utility" onclick="closeConfirmModal()"><span
+                <button type="button" class="btn btn-utility" onclick="closeConfirmModal()"><span
                         data-i18n="cancel_btn">Cancel</span></button>
-                <button id="btn-execute-rename" class="btn btn-primary" onclick="executeRename()"><span
+                <button type="button" id="btn-execute-rename" class="btn btn-primary" onclick="executeRename()"><span
                         data-i18n="agree_rename">Confirm Rename</span></button>
             </div>
         </div>
@@ -336,7 +803,7 @@
                     </h2>
                     <span class="image-counter-badge" id="image-modal-counter">1 / 1</span>
                 </div>
-                <button class="modal-close" onclick="closeImageModal()">
+                <button type="button" class="modal-close" onclick="closeImageModal()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                         stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" />
@@ -345,7 +812,7 @@
                 </button>
             </div>
             <div class="modal-body image-body">
-                <button class="image-nav-btn nav-prev" onclick="navigateImage(-1)"
+                <button type="button" class="image-nav-btn nav-prev" onclick="navigateImage(-1)"
                     title="Previous Image (Left Arrow / Up)" data-i18n-title="prev_image">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                         stroke-linejoin="round">
@@ -355,7 +822,7 @@
                 <div class="image-preview-container">
                     <img id="image-modal-img" src="" alt="Screenshot Preview" />
                 </div>
-                <button class="image-nav-btn nav-next" onclick="navigateImage(1)"
+                <button type="button" class="image-nav-btn nav-next" onclick="navigateImage(1)"
                     title="Next Image (Right Arrow / Down)" data-i18n-title="next_image">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                         stroke-linejoin="round">

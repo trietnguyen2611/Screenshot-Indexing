@@ -1,4 +1,4 @@
-// ── Screenshot Index — Frontend Logic ───────────────────────────────
+// ── Screenshot Indexing — Frontend Logic ────────────────────────────
 
 const API = {
     browse: (path) => fetch('/api/browse', {
@@ -16,12 +16,47 @@ const API = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ start, end, lang: currentLang })
     }).then(r => r.json()),
+    getSettings: () => fetch('/api/settings').then(r => r.json()),
+    saveSettings: (payload) => fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, lang: currentLang })
+    }).then(r => r.json()),
+    checkPermissions: (prompt = false) => fetch('/api/capture/permissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, lang: currentLang })
+    }).then(r => r.json()),
+    previewScreen: (delaySec = 0.2) => fetch('/api/capture/preview-screen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delay_sec: delaySec, lang: currentLang })
+    }).then(r => r.json()),
+    pickOverlay: (target = 'region') => fetch('/api/capture/pick-overlay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, lang: currentLang })
+    }).then(r => r.json()),
+    startCapture: (payload) => fetch('/api/capture/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, lang: currentLang })
+    }).then(r => r.json()),
+    stopCapture: () => fetch('/api/capture/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang: currentLang })
+    }).then(r => r.json()),
+    getCaptureStatus: () => fetch('/api/capture/status').then(r => r.json()),
 };
 
 // ── i18n ────────────────────────────────────────────────────────────
 const translations = {
     en: {
         desc: "Batch rename screenshot files chronologically",
+        tab_indexing: "Screenshot Indexing",
+        tab_auto_capture: "Auto Capture",
+        resizer_title: "Drag to resize",
         folder: "Folder",
         folder_placeholder: "Enter folder path...",
         browse: "Browse",
@@ -40,6 +75,7 @@ const translations = {
         empty_title: "No files yet",
         empty_desc: "Select a folder containing screenshot files to start",
         modal_select_folder: "Select Folder",
+        modal_no_subfolder: "No subfolders",
         back: "Back",
         cancel: "Cancel",
         select_this_folder: "Select this folder",
@@ -52,6 +88,57 @@ const translations = {
         preview_image: "Preview Image",
         prev_image: "Previous Image (Left Arrow / Up)",
         next_image: "Next Image (Right Arrow / Down)",
+        click_to_preview: "Click to preview image",
+        // Auto Capture UI
+        capture_save_folder: "Save Folder",
+        capture_folder_placeholder: "Enter save folder path...",
+        capture_region: "Capture Region",
+        btn_test_shot_now: "Test Shot Now",
+        btn_test_shot_2s: "Test Shot in 2s",
+        btn_pick_region_overlay: "Screen Overlay Picker",
+        capture_timer_sound: "Timer & Shutter",
+        capture_interval: "Interval (1–10s)",
+        capture_max_shots: "Shot Limit",
+        capture_max_shots_placeholder: "0 = ∞",
+        capture_sound_label: "macOS Shutter Sound",
+        page_turn_title: "Auto Page-Turn",
+        page_turn_enable: "Enable auto page-turn",
+        pt_mode_keyboard: "Key Shortcut",
+        pt_mode_click: "Click Point",
+        pt_key_recorder_label: "Sample Key (click & press any key)",
+        pt_key_recorder_placeholder: "Click & press key...",
+        pt_key_recorder_title: "Click here and press any key to record",
+        pt_key_listening: "Press any key...",
+        pt_key_preset_label: "Quick Preset",
+        pt_key_custom_option: "Custom key",
+        btn_set_click_canvas: "Pick on Canvas",
+        btn_pick_click_overlay: "Screen Overlay",
+        capture_controls: "Capture Control",
+        btn_capture_start: "Start Capture",
+        btn_capture_stop: "Stop",
+        phase_idle: "Ready",
+        phase_countdown: "Starting in {sec}s...",
+        phase_capturing: "Capturing...",
+        phase_completed: "Completed",
+        phase_stopped: "Stopped",
+        phase_error: "Error",
+        perm_screen_recording: "Screen Recording",
+        perm_accessibility: "Accessibility",
+        perm_granted: "Granted",
+        perm_missing: "Not Granted",
+        perm_unknown: "Unknown",
+        btn_check_permissions: "Check / Request Permissions",
+        tool_select_region: "Select Region",
+        tool_set_click: "Set Click Point",
+        view_canvas: "Interactive Canvas",
+        view_live_shot: "Latest Shot",
+        canvas_empty_title: "No screen preview yet",
+        canvas_empty_desc: "Take a test shot to preview your screen and draw the region or click target",
+        canvas_drag_hint: "Drag to set region or click to place page-turn target",
+        canvas_coord_summary: "Region: ({x}, {y}) {w}×{h} • Click: ({cx}, {cy})",
+        live_latest_label: "Latest Captured Shot",
+        live_empty_title: "Waiting for captured shots",
+        live_empty_desc: "Start auto-capture to preview each screenshot live as it is saved",
         // JS strings
         toast_enter_folder: "Please enter folder path",
         toast_no_subfolder: "No subfolders",
@@ -73,10 +160,34 @@ const translations = {
         toast_theme_change: "Switched to {theme} theme",
         theme_dark: "Dark",
         theme_light: "Light",
-        btn_rename: "Rename"
+        btn_rename: "Rename",
+        toast_settings_saved: "Settings saved",
+        toast_settings_error: "Error saving settings",
+        toast_preview_delay: "Switch to target window — capturing in {sec}s...",
+        toast_preview_ready: "Screen preview ready",
+        toast_preview_failed: "Failed to capture screen preview",
+        toast_overlay_region_set: "Region updated from screen overlay",
+        toast_overlay_click_set: "Click point updated from screen overlay",
+        toast_overlay_cancelled: "Overlay selection cancelled",
+        toast_overlay_error: "Error running screen overlay",
+        toast_capture_folder_required: "Please choose a save folder first",
+        toast_capture_invalid_region: "Capture region width and height must be at least 10",
+        toast_capture_started: "Auto capture started",
+        toast_capture_stopped: "Auto capture stopped",
+        toast_capture_completed: "Completed {count} captured shots",
+        toast_capture_error: "Auto capture error",
+        toast_permissions_updated: "Permission status updated",
+        toast_permissions_error: "Could not check permissions",
+        toast_canvas_click_hint: "Click anywhere on the preview canvas to set page-turn point",
+        toast_key_recorded: "Page-turn key set to {key}",
+        toast_region_updated: "Region updated: {w}×{h} at ({x}, {y})",
+        toast_click_updated: "Click target set to ({x}, {y})"
     },
     vi: {
         desc: "Đổi tên đồng loạt file screenshot theo thứ tự thời gian",
+        tab_indexing: "Screenshot Indexing",
+        tab_auto_capture: "Chụp tự động",
+        resizer_title: "Kéo để điều chỉnh kích thước",
         folder: "Thư mục",
         folder_placeholder: "Nhập đường dẫn thư mục...",
         browse: "Duyệt",
@@ -95,6 +206,7 @@ const translations = {
         empty_title: "Chưa có file nào",
         empty_desc: "Chọn thư mục chứa các file screenshot để bắt đầu",
         modal_select_folder: "Chọn thư mục",
+        modal_no_subfolder: "Không có thư mục con",
         back: "Trở về",
         cancel: "Huỷ",
         select_this_folder: "Chọn thư mục này",
@@ -107,6 +219,57 @@ const translations = {
         preview_image: "Xem trước ảnh",
         prev_image: "Ảnh trước (Mũi tên Trái / Up)",
         next_image: "Ảnh tiếp theo (Mũi tên Phải / Down)",
+        click_to_preview: "Click để xem trước ảnh",
+        // Auto Capture UI
+        capture_save_folder: "Thư mục lưu ảnh",
+        capture_folder_placeholder: "Nhập đường dẫn lưu ảnh chụp...",
+        capture_region: "Vùng chụp cố định",
+        btn_test_shot_now: "Chụp thử ngay",
+        btn_test_shot_2s: "Chụp thử sau 2s",
+        btn_pick_region_overlay: "Chọn vùng trên màn hình",
+        capture_timer_sound: "Hẹn giờ & Âm thanh",
+        capture_interval: "Chu kỳ chụp (1–10s)",
+        capture_max_shots: "Giới hạn số ảnh",
+        capture_max_shots_placeholder: "0 = ∞",
+        capture_sound_label: "Âm thanh chụp macOS",
+        page_turn_title: "Tự động lật trang",
+        page_turn_enable: "Bật tự động lật trang",
+        pt_mode_keyboard: "Phím tắt",
+        pt_mode_click: "Điểm click",
+        pt_key_recorder_label: "Phím mẫu (click & nhấn phím bất kỳ)",
+        pt_key_recorder_placeholder: "Click & nhấn phím...",
+        pt_key_recorder_title: "Click vào đây và nhấn phím bất kỳ để ghi",
+        pt_key_listening: "Đang chờ nhấn phím...",
+        pt_key_preset_label: "Chọn nhanh phím",
+        pt_key_custom_option: "Phím tuỳ chỉnh",
+        btn_set_click_canvas: "Chọn trên Canvas",
+        btn_pick_click_overlay: "Chọn trên màn hình",
+        capture_controls: "Điều khiển chụp",
+        btn_capture_start: "Bắt đầu chụp",
+        btn_capture_stop: "Dừng",
+        phase_idle: "Sẵn sàng",
+        phase_countdown: "Bắt đầu sau {sec}s...",
+        phase_capturing: "Đang chụp...",
+        phase_completed: "Hoàn thành",
+        phase_stopped: "Đã dừng",
+        phase_error: "Lỗi",
+        perm_screen_recording: "Ghi màn hình",
+        perm_accessibility: "Trợ năng (Accessibility)",
+        perm_granted: "Đã cấp",
+        perm_missing: "Chưa cấp",
+        perm_unknown: "Chưa rõ",
+        btn_check_permissions: "Kiểm tra / Xin quyền macOS",
+        tool_select_region: "Chọn vùng chụp",
+        tool_set_click: "Đặt điểm click",
+        view_canvas: "Canvas tương tác",
+        view_live_shot: "Ảnh mới nhất",
+        canvas_empty_title: "Chưa có ảnh chụp màn hình",
+        canvas_empty_desc: "Nhấn Chụp thử để xem toàn màn hình và khoanh vùng hoặc chọn điểm lật trang",
+        canvas_drag_hint: "Kéo để chọn vùng chụp hoặc click để đặt điểm lật trang",
+        canvas_coord_summary: "Vùng: ({x}, {y}) {w}×{h} • Click: ({cx}, {cy})",
+        live_latest_label: "Ảnh chụp mới nhất",
+        live_empty_title: "Đang chờ ảnh chụp mới",
+        live_empty_desc: "Bắt đầu chụp tự động để xem trực tiếp từng ảnh vừa lưu",
         // JS strings
         toast_enter_folder: "Vui lòng nhập đường dẫn thư mục",
         toast_no_subfolder: "Không có thư mục con",
@@ -123,19 +286,42 @@ const translations = {
         status_preview: "Xem trước: {count} file sẽ được đổi tên",
         toast_no_rename: "Chưa có file để đổi tên",
         confirm_rename_count: "Bạn có chắc chắn muốn đổi tên {count} file?",
-        btn_renaming: "${t('btn_renaming')}",
+        btn_renaming: "Đang đổi tên...",
         toast_rename_error: "Lỗi khi đổi tên",
         toast_theme_change: "Đã chuyển sang Giao diện {theme}",
         theme_dark: "Tối",
         theme_light: "Sáng",
-        btn_rename: "Đổi tên"
+        btn_rename: "Đổi tên",
+        toast_settings_saved: "Đã lưu cài đặt",
+        toast_settings_error: "Lỗi khi lưu cài đặt",
+        toast_preview_delay: "Hãy chuyển sang cửa sổ cần chụp — sẽ chụp sau {sec}s...",
+        toast_preview_ready: "Đã chụp ảnh xem trước màn hình",
+        toast_preview_failed: "Không thể chụp ảnh xem trước",
+        toast_overlay_region_set: "Đã cập nhật vùng chụp từ màn hình",
+        toast_overlay_click_set: "Đã cập nhật điểm click từ màn hình",
+        toast_overlay_cancelled: "Đã huỷ chọn trên màn hình",
+        toast_overlay_error: "Lỗi khi mở lớp chọn màn hình",
+        toast_capture_folder_required: "Vui lòng chọn thư mục lưu ảnh trước",
+        toast_capture_invalid_region: "Chiều rộng và chiều cao vùng chụp phải tối thiểu 10",
+        toast_capture_started: "Đã bắt đầu chụp tự động",
+        toast_capture_stopped: "Đã dừng chụp tự động",
+        toast_capture_completed: "Đã chụp xong {count} ảnh",
+        toast_capture_error: "Lỗi khi chụp tự động",
+        toast_permissions_updated: "Đã cập nhật trạng thái quyền",
+        toast_permissions_error: "Không thể kiểm tra quyền macOS",
+        toast_canvas_click_hint: "Click vào vị trí bất kỳ trên ảnh xem trước để đặt điểm lật trang",
+        toast_key_recorded: "Đã đặt phím lật trang: {key}",
+        toast_region_updated: "Đã cập nhật vùng: {w}×{h} tại ({x}, {y})",
+        toast_click_updated: "Đã đặt điểm click: ({x}, {y})"
     }
 };
 
 let currentLang = localStorage.getItem('user_lang') || 'en';
+if (currentLang !== 'en' && currentLang !== 'vi') currentLang = 'en';
 
 function t(key, vars = {}) {
-    let str = translations[currentLang][key] || key;
+    const dict = translations[currentLang] || translations.en;
+    let str = dict[key] || translations.en[key] || key;
     for (const [k, v] of Object.entries(vars)) {
         str = str.replace(`{${k}}`, v);
     }
@@ -152,11 +338,30 @@ function updateDOMTranslations() {
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
         el.title = t(el.getAttribute('data-i18n-title'));
     });
-    
+
     const langSelect = document.getElementById('lang-select');
     if (langSelect && langSelect.value !== currentLang) {
         langSelect.value = currentLang;
     }
+    const headerLangSelect = document.getElementById('header-lang-select');
+    if (headerLangSelect && headerLangSelect.value !== currentLang) {
+        headerLangSelect.value = currentLang;
+    }
+
+    refreshDynamicTranslations();
+}
+
+function refreshDynamicTranslations() {
+    // Update clickable table row tooltips if table already rendered
+    $$('#file-tbody tr.clickable-row').forEach(tr => {
+        tr.title = t('click_to_preview');
+    });
+
+    // Update dynamic Auto Capture indicators
+    renderPermissionBadges(lastPermissions);
+    renderCaptureStatus(lastCaptureStatus);
+    updateCanvasCoordSummary();
+    refreshKeyRecorderDisplay();
 }
 
 function setLanguage(lang) {
@@ -169,15 +374,117 @@ function setLanguage(lang) {
 
 // ── State ───────────────────────────────────────────────────────────
 
+let activeTab = 'indexing';
 let currentFolder = '';
 let currentFiles = [];
 let browserCurrentPath = '';
+let browserTarget = 'indexing';
 let currentImageIndex = -1;
+
+// Auto-Capture State
+let captureSettings = {
+    save_folder: '',
+    region: { x: 100, y: 100, width: 800, height: 600 },
+    interval_sec: 3,
+    max_shots: 0,
+    countdown_sec: 3,
+    page_turn: {
+        enabled: true,
+        mode: 'keyboard',
+        key_name: 'ArrowRight',
+        key_code: 124,
+        click_x: 500,
+        click_y: 500,
+    },
+    sound_enabled: true,
+};
+
+let lastPermissions = { screen_recording: null, accessibility: null };
+let lastCaptureStatus = {
+    running: false,
+    phase: 'idle',
+    countdown_remaining: 0,
+    captured_count: 0,
+    max_shots: 0,
+    interval_sec: 3,
+    save_folder: '',
+    last_file: '',
+    captured_files: [],
+    last_error: ''
+};
+
+let statusPollTimer = null;
+let lastSeenCapturedFile = '';
+let selectedLiveFile = '';
+let autoSwitchedLiveForRun = false;
+
+// Interactive Canvas State
+let previewMeta = null;
+let previewImageObj = null;
+let canvasTool = 'region'; // 'region' | 'click'
+let captureViewMode = 'canvas'; // 'canvas' | 'live'
+let isDrawingRegion = false;
+let dragStartLogical = null;
+let regionBeforeDrag = null;
 
 // ── DOM Helpers ─────────────────────────────────────────────────────
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
+
+function escapeAttr(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+// ── Top Bar Tab Navigation ──────────────────────────────────────────
+
+function switchTab(tabName) {
+    if (tabName !== 'indexing' && tabName !== 'capture') return;
+    const prevTab = activeTab;
+    activeTab = tabName;
+
+    const btnIndexing = $('#tab-btn-indexing');
+    const btnCapture = $('#tab-btn-capture');
+    const viewIndexing = $('#view-indexing');
+    const viewCapture = $('#view-capture');
+
+    if (btnIndexing) {
+        btnIndexing.classList.toggle('active', tabName === 'indexing');
+        btnIndexing.setAttribute('aria-selected', tabName === 'indexing' ? 'true' : 'false');
+    }
+    if (btnCapture) {
+        btnCapture.classList.toggle('active', tabName === 'capture');
+        btnCapture.setAttribute('aria-selected', tabName === 'capture' ? 'true' : 'false');
+    }
+    if (viewIndexing) {
+        viewIndexing.classList.toggle('active', tabName === 'indexing');
+        viewIndexing.style.display = tabName === 'indexing' ? 'flex' : 'none';
+    }
+    if (viewCapture) {
+        viewCapture.classList.toggle('active', tabName === 'capture');
+        viewCapture.style.display = tabName === 'capture' ? 'flex' : 'none';
+    }
+
+    if (tabName === 'indexing' && prevTab === 'capture') {
+        const capFolder = ($('#capture-folder-input')?.value || '').trim();
+        if (capFolder) {
+            const folderInput = $('#folder-input');
+            if (folderInput) folderInput.value = capFolder;
+            currentFolder = capFolder;
+            scanFiles();
+        }
+    } else if (tabName === 'capture') {
+        requestAnimationFrame(() => {
+            fitCanvasToStage();
+            redrawCaptureCanvas();
+        });
+    }
+}
 
 // ── Toast ───────────────────────────────────────────────────────────
 
@@ -192,7 +499,7 @@ function showToast(message, typeOrDuration = 'info', duration = 3000) {
     }
 
     const toast = $('#toast');
-    
+
     let iconSvg = '';
     if (type === 'error') {
         iconSvg = `<svg class="toast-icon toast-icon-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
@@ -255,11 +562,14 @@ function closeModalWithAnimation(modal, callback) {
     }, 190);
 }
 
-async function openBrowser() {
+async function openBrowser(target = 'indexing') {
+    browserTarget = target === 'capture' ? 'capture' : 'indexing';
     const modal = $('#folder-modal');
     modal.classList.remove('closing');
     modal.style.display = 'flex';
-    const startPath = currentFolder || '';
+    const startPath = browserTarget === 'capture'
+        ? (($('#capture-folder-input')?.value || '').trim() || currentFolder || '')
+        : (currentFolder || '');
     await browseTo(startPath || undefined);
 }
 
@@ -278,7 +588,7 @@ async function browseTo(path) {
     try {
         const res = await API.browse(path);
         if (!res.ok) {
-            showToast(res.message);
+            showToast(escapeAttr(res.message || t('toast_error_browse')), 'error');
             return;
         }
 
@@ -288,20 +598,23 @@ async function browseTo(path) {
 
         const list = $('#modal-dir-list');
         if (res.dirs.length === 0) {
-            list.innerHTML = '<div class="modal-empty">Không có thư mục con</div>';
+            list.innerHTML = `<div class="modal-empty">${escapeAttr(t('modal_no_subfolder'))}</div>`;
         } else {
-            list.innerHTML = res.dirs.map(dir => `
-                <div class="dir-item" onclick="browseTo('${(res.current + '/' + dir).replace(/'/g, "\\'")}')">
+            const base = res.current === '/' ? '' : res.current;
+            list.innerHTML = res.dirs.map(dir => {
+                const fullPath = `${base}/${dir}`;
+                return `
+                <div class="dir-item" data-path="${escapeAttr(fullPath)}" onclick="browseTo(this.getAttribute('data-path'))">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                     </svg>
-                    ${dir}
-                </div>
-            `).join('');
+                    ${escapeAttr(dir)}
+                </div>`;
+            }).join('');
         }
     } catch (err) {
-        showToast(t('toast_error_browse'));
+        showToast(t('toast_error_browse'), 'error');
     }
 }
 
@@ -312,7 +625,15 @@ async function browseParent() {
     }
 }
 
-function selectFolder() {
+async function selectFolder() {
+    if (browserTarget === 'capture') {
+        const capInput = $('#capture-folder-input');
+        if (capInput) capInput.value = browserCurrentPath;
+        closeBrowser();
+        await saveCaptureSettingsFromUI({ showSavedToast: true });
+        return;
+    }
+
     currentFolder = browserCurrentPath;
     $('#folder-input').value = browserCurrentPath;
     closeBrowser();
@@ -334,7 +655,7 @@ async function scanFiles() {
         if (res.ok) {
             currentFiles = res.files;
             renderTable(res.files);
-            setStatus(t('status_file_count', {count: res.count}), 'success');
+            setStatus(t('status_file_count', { count: res.count }), 'success');
             $('#file-count').textContent = `(${res.count})`;
         } else {
             currentFiles = [];
@@ -343,7 +664,7 @@ async function scanFiles() {
             $('#file-count').textContent = '';
         }
     } catch (err) {
-        showToast(t('toast_scan_error'));
+        showToast(t('toast_scan_error'), 'error');
         setStatus(t('status_conn_error'), 'error');
     }
 }
@@ -358,15 +679,6 @@ async function refreshFiles() {
 }
 
 // ── Table ───────────────────────────────────────────────────────────
-
-function escapeAttr(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-}
 
 function handleRowClick(tr) {
     const filename = tr.getAttribute('data-filename');
@@ -388,11 +700,12 @@ function renderTable(files, startNum = null) {
     emptyState.style.display = 'none';
     wrapper.style.display = 'flex';
 
+    const rowTitle = escapeAttr(t('click_to_preview'));
     tbody.innerHTML = files.map((f, i) => {
         const newName = startNum !== null ? `${startNum + i}.png` : '—';
         const newNameClass = startNum !== null ? '' : 'style="color: var(--color-ink-muted-48); font-weight: 400;"';
         const attrName = escapeAttr(f.name);
-        return `<tr class="clickable-row" data-filename="${attrName}" onclick="handleRowClick(this)" title="Click để xem trước ảnh">
+        return `<tr class="clickable-row" data-filename="${attrName}" onclick="handleRowClick(this)" title="${rowTitle}">
             <td>${f.index}</td>
             <td>
                 <div class="filename-cell">
@@ -401,10 +714,10 @@ function renderTable(files, startNum = null) {
                         <circle cx="8.5" cy="8.5" r="1.5"/>
                         <polyline points="21 15 16 10 5 21"/>
                     </svg>
-                    <span>${f.name}</span>
+                    <span>${attrName}</span>
                 </div>
             </td>
-            <td ${newNameClass}>${newName}</td>
+            <td ${newNameClass}>${escapeAttr(newName)}</td>
         </tr>`;
     }).join('');
 }
@@ -442,7 +755,7 @@ function preview() {
     const count = Math.min(currentFiles.length, totalNumbers);
 
     renderTable(currentFiles.slice(0, count), startNum);
-    setStatus(t('status_preview', {count: count}), 'info');
+    setStatus(t('status_preview', { count: count }), 'info');
 }
 
 // ── Rename Confirmation Modal ───────────────────────────────────────
@@ -473,7 +786,7 @@ function requestRename() {
 
     pendingRenameData = { startNum, endNum, count };
 
-    $('#confirm-count-text').textContent = t('confirm_rename_count', {count: count});
+    $('#confirm-count-text').textContent = t('confirm_rename_count', { count: count });
     $('#confirm-first-old').textContent = currentFiles[0].name;
     $('#confirm-first-new').textContent = `${startNum}.png`;
     $('#confirm-last-old').textContent = currentFiles[count - 1].name;
@@ -505,22 +818,22 @@ async function executeRename() {
 
     const btn = $('#btn-rename');
     btn.disabled = true;
-    btn.innerHTML = `<span class="spinner"></span> ${t('btn_renaming')}`;
+    btn.innerHTML = `<span class="spinner"></span> ${escapeAttr(t('btn_renaming'))}`;
 
     try {
         const res = await API.renameFiles(startNum, endNum);
         if (res.ok) {
-            showToast(res.message);
+            showToast(escapeAttr(res.message), 'success');
             setStatus(res.message, 'success');
             currentFiles = [];
             renderEmptyState();
             $('#file-count').textContent = '';
         } else {
-            showToast(res.message);
+            showToast(escapeAttr(res.message), 'error');
             setStatus(res.message, 'error');
         }
     } catch (err) {
-        showToast(t('toast_rename_error'));
+        showToast(t('toast_rename_error'), 'error');
         setStatus(t('status_conn_error'), 'error');
     } finally {
         btn.disabled = false;
@@ -529,33 +842,32 @@ async function executeRename() {
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            ${t('btn_rename')}
+            <span data-i18n="rename">${escapeAttr(t('btn_rename'))}</span>
         `;
     }
 }
 
 // ── Resizer ─────────────────────────────────────────────────────────
 
-function initResizer() {
-    const container = $('#split-container');
-    const sidebar = $('#sidebar-panel');
-    const resizer = $('#resizer-handle');
+function initResizerFor(containerSel, sidebarSel, resizerSel, storageKey, defaultWidth = 290, onResizeDone = null) {
+    const container = $(containerSel);
+    const sidebar = $(sidebarSel);
+    const resizer = $(resizerSel);
 
     if (!container || !sidebar || !resizer) return;
 
     const MIN_SIDEBAR_WIDTH = 290;
 
-    // Restore saved sidebar width
-    const savedWidth = localStorage.getItem('sidebar_width');
+    const savedWidth = localStorage.getItem(storageKey);
     if (savedWidth) {
         const parsed = parseInt(savedWidth, 10);
         if (!isNaN(parsed) && parsed >= MIN_SIDEBAR_WIDTH && parsed <= 650) {
             sidebar.style.width = `${parsed}px`;
         } else {
-            sidebar.style.width = `${MIN_SIDEBAR_WIDTH}px`;
+            sidebar.style.width = `${defaultWidth}px`;
         }
     } else {
-        sidebar.style.width = `${MIN_SIDEBAR_WIDTH}px`;
+        sidebar.style.width = `${defaultWidth}px`;
     }
 
     let isDragging = false;
@@ -580,11 +892,12 @@ function initResizer() {
         const deltaX = e.clientX - startX;
         const containerWidth = container.getBoundingClientRect().width;
         const minAllowed = MIN_SIDEBAR_WIDTH;
-        const maxAllowed = Math.min(650, containerWidth - 350);
+        const maxAllowed = Math.min(650, Math.max(MIN_SIDEBAR_WIDTH, containerWidth - 350));
         let newWidth = startWidth + deltaX;
 
         newWidth = Math.max(minAllowed, Math.min(newWidth, maxAllowed));
         sidebar.style.width = `${newWidth}px`;
+        if (onResizeDone) onResizeDone();
     };
 
     const onPointerUp = () => {
@@ -597,10 +910,19 @@ function initResizer() {
         document.removeEventListener('pointermove', onPointerMove);
         document.removeEventListener('pointerup', onPointerUp);
 
-        localStorage.setItem('sidebar_width', sidebar.offsetWidth.toString());
+        localStorage.setItem(storageKey, sidebar.offsetWidth.toString());
+        if (onResizeDone) onResizeDone();
     };
 
     resizer.addEventListener('pointerdown', onPointerDown);
+}
+
+function initResizer() {
+    initResizerFor('#split-container', '#sidebar-panel', '#resizer-handle', 'sidebar_width', 290);
+    initResizerFor('#capture-split-container', '#capture-sidebar-panel', '#capture-resizer-handle', 'capture_sidebar_width', 340, () => {
+        fitCanvasToStage();
+        redrawCaptureCanvas();
+    });
 }
 
 // ── Notes Persistence ───────────────────────────────────────────────
@@ -657,7 +979,6 @@ function updateImageModalContent() {
     if (counter) counter.textContent = `${currentImageIndex + 1} / ${currentFiles.length}`;
     if (img) img.src = `/api/image?name=${encodeURIComponent(file.name)}&t=${Date.now()}`;
 
-    // Highlight active row in table and scroll into view
     const rows = $$('#file-tbody tr');
     rows.forEach((row, idx) => {
         if (idx === currentImageIndex) {
@@ -696,9 +1017,1046 @@ function closeImageOutside(event) {
     }
 }
 
+// ── Auto Capture: Settings & Form Handlers ──────────────────────────
+
+function clampInt(val, min, max, fallback) {
+    const n = parseInt(val, 10);
+    if (isNaN(n)) return fallback;
+    if (max !== null && max !== undefined) {
+        return Math.max(min, Math.min(max, n));
+    }
+    return Math.max(min, n);
+}
+
+function formatKeyDisplay(keyName) {
+    const k = keyName || 'ArrowRight';
+    const symbols = {
+        ArrowRight: '→ ArrowRight',
+        ArrowLeft: '← ArrowLeft',
+        ArrowDown: '↓ ArrowDown',
+        ArrowUp: '↑ ArrowUp',
+        Space: '␣ Space',
+        PageDown: '⇟ PageDown',
+        PageUp: '⇞ PageUp',
+        Enter: '↵ Enter',
+        Return: '↵ Return',
+        Tab: '⇥ Tab',
+        Escape: '⎋ Escape',
+        Backspace: '⌫ Backspace',
+        Delete: '⌦ Delete',
+        Home: '↖ Home',
+        End: '↘ End',
+    };
+    if (symbols[k]) return symbols[k];
+    if (k.length === 1) return k.toUpperCase();
+    return k;
+}
+
+function normalizeRecordedKey(e) {
+    const ignored = new Set([
+        'Shift', 'Control', 'Alt', 'Meta', 'CapsLock',
+        'Fn', 'NumLock', 'ScrollLock', 'Dead', 'Unidentified'
+    ]);
+    if (ignored.has(e.key)) return null;
+
+    if (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar') {
+        return 'Space';
+    }
+    if (e.code === 'NumpadEnter' || e.key === 'Enter') {
+        return 'Enter';
+    }
+    const namedKeys = [
+        'ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp',
+        'PageDown', 'PageUp', 'Tab', 'Escape', 'Home', 'End',
+        'Backspace', 'Delete'
+    ];
+    if (namedKeys.includes(e.key)) {
+        return e.key;
+    }
+    const keyMatch = /^Key([A-Z])$/.exec(e.code || '');
+    if (keyMatch) {
+        return keyMatch[1].toLowerCase();
+    }
+    const digitMatch = /^Digit([0-9])$/.exec(e.code || '');
+    if (digitMatch) {
+        return digitMatch[1];
+    }
+    if (e.key && e.key.length === 1) {
+        return e.key.toLowerCase();
+    }
+    return e.code || e.key || 'ArrowRight';
+}
+
+function refreshKeyRecorderDisplay() {
+    const rec = $('#key-recorder-input');
+    const keyName = captureSettings?.page_turn?.key_name || 'ArrowRight';
+    if (rec && document.activeElement !== rec) {
+        rec.value = formatKeyDisplay(keyName);
+    }
+    const preset = $('#page-turn-key-preset');
+    if (preset) {
+        const optionExists = Array.from(preset.options).some(opt => opt.value === keyName && opt.value !== '');
+        preset.value = optionExists ? keyName : '';
+    }
+}
+
+function initKeyRecorder() {
+    const rec = $('#key-recorder-input');
+    if (!rec) return;
+
+    rec.addEventListener('focus', () => {
+        rec.classList.add('is-recording');
+        rec.value = t('pt_key_listening');
+    });
+
+    rec.addEventListener('blur', () => {
+        rec.classList.remove('is-recording');
+        refreshKeyRecorderDisplay();
+    });
+
+    rec.addEventListener('keydown', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const keyName = normalizeRecordedKey(e);
+        if (!keyName) return;
+
+        captureSettings.page_turn.key_name = keyName;
+        captureSettings.page_turn.key_code = null;
+
+        rec.classList.remove('is-recording');
+        rec.value = formatKeyDisplay(keyName);
+        refreshKeyRecorderDisplay();
+        rec.blur();
+
+        rec.classList.add('is-saved');
+        setTimeout(() => rec.classList.remove('is-saved'), 900);
+
+        showToast(t('toast_key_recorded', { key: escapeAttr(formatKeyDisplay(keyName)) }), 'success');
+        await saveCaptureSettingsFromUI({ showSavedToast: false });
+    });
+}
+
+function applySettingsToUI(rawSettings) {
+    if (!rawSettings) return;
+    const reg = rawSettings.region || {};
+    const pt = rawSettings.page_turn || {};
+
+    captureSettings = {
+        save_folder: rawSettings.save_folder || '',
+        region: {
+            x: Number.isFinite(Number(reg.x)) ? Math.round(Number(reg.x)) : 100,
+            y: Number.isFinite(Number(reg.y)) ? Math.round(Number(reg.y)) : 100,
+            width: clampInt(reg.width, 10, null, 800),
+            height: clampInt(reg.height, 10, null, 600),
+        },
+        interval_sec: clampInt(rawSettings.interval_sec, 1, 10, 3),
+        max_shots: clampInt(rawSettings.max_shots, 0, null, 0),
+        countdown_sec: clampInt(rawSettings.countdown_sec, 0, 10, 3),
+        page_turn: {
+            enabled: pt.enabled !== undefined ? Boolean(pt.enabled) : true,
+            mode: pt.mode === 'click' ? 'click' : 'keyboard',
+            key_name: pt.key_name || 'ArrowRight',
+            key_code: pt.key_code ?? null,
+            click_x: Number.isFinite(Number(pt.click_x)) ? Math.round(Number(pt.click_x)) : 500,
+            click_y: Number.isFinite(Number(pt.click_y)) ? Math.round(Number(pt.click_y)) : 500,
+        },
+        sound_enabled: rawSettings.sound_enabled !== undefined ? Boolean(rawSettings.sound_enabled) : true,
+    };
+
+    const folderInput = $('#capture-folder-input');
+    if (folderInput) folderInput.value = captureSettings.save_folder;
+
+    if ($('#reg-x')) $('#reg-x').value = captureSettings.region.x;
+    if ($('#reg-y')) $('#reg-y').value = captureSettings.region.y;
+    if ($('#reg-w')) $('#reg-w').value = captureSettings.region.width;
+    if ($('#reg-h')) $('#reg-h').value = captureSettings.region.height;
+
+    if ($('#capture-interval-range')) $('#capture-interval-range').value = captureSettings.interval_sec;
+    if ($('#capture-interval')) $('#capture-interval').value = captureSettings.interval_sec;
+
+    const maxShotsEl = $('#capture-max-shots');
+    if (maxShotsEl) {
+        maxShotsEl.value = captureSettings.max_shots > 0 ? String(captureSettings.max_shots) : '';
+    }
+
+    if ($('#capture-sound-toggle')) {
+        $('#capture-sound-toggle').checked = captureSettings.sound_enabled;
+    }
+
+    if ($('#page-turn-enabled')) {
+        $('#page-turn-enabled').checked = captureSettings.page_turn.enabled;
+    }
+    const ptBody = $('#page-turn-config-body');
+    if (ptBody) {
+        ptBody.classList.toggle('is-disabled', !captureSettings.page_turn.enabled);
+    }
+
+    updatePageTurnModeUI(captureSettings.page_turn.mode);
+    refreshKeyRecorderDisplay();
+
+    if ($('#click-x')) $('#click-x').value = captureSettings.page_turn.click_x;
+    if ($('#click-y')) $('#click-y').value = captureSettings.page_turn.click_y;
+
+    updateCanvasCoordSummary();
+    redrawCaptureCanvas();
+}
+
+function collectSettingsFromUI() {
+    const saveFolder = ($('#capture-folder-input')?.value || '').trim();
+    const rx = clampInt($('#reg-x')?.value, -10000, 20000, captureSettings.region.x);
+    const ry = clampInt($('#reg-y')?.value, -10000, 20000, captureSettings.region.y);
+    const rw = clampInt($('#reg-w')?.value, 10, 20000, captureSettings.region.width);
+    const rh = clampInt($('#reg-h')?.value, 10, 20000, captureSettings.region.height);
+
+    const intervalSec = clampInt($('#capture-interval')?.value, 1, 10, captureSettings.interval_sec);
+    const maxRaw = ($('#capture-max-shots')?.value || '').trim();
+    const maxShots = maxRaw === '' ? 0 : clampInt(maxRaw, 0, 100000, 0);
+    const soundEnabled = $('#capture-sound-toggle') ? Boolean($('#capture-sound-toggle').checked) : true;
+
+    const ptEnabled = $('#page-turn-enabled') ? Boolean($('#page-turn-enabled').checked) : true;
+    const ptMode = captureSettings.page_turn.mode === 'click' ? 'click' : 'keyboard';
+    const keyName = captureSettings.page_turn.key_name || 'ArrowRight';
+    const cx = clampInt($('#click-x')?.value, -10000, 20000, captureSettings.page_turn.click_x);
+    const cy = clampInt($('#click-y')?.value, -10000, 20000, captureSettings.page_turn.click_y);
+
+    const payload = {
+        save_folder: saveFolder,
+        region: { x: rx, y: ry, width: rw, height: rh },
+        interval_sec: intervalSec,
+        max_shots: maxShots,
+        countdown_sec: clampInt(captureSettings.countdown_sec, 0, 10, 3),
+        page_turn: {
+            enabled: ptEnabled,
+            mode: ptMode,
+            key_name: keyName,
+            click_x: cx,
+            click_y: cy,
+        },
+        sound_enabled: soundEnabled,
+    };
+    return payload;
+}
+
+async function saveCaptureSettingsFromUI({ showSavedToast = false } = {}) {
+    const payload = collectSettingsFromUI();
+    try {
+        const res = await API.saveSettings(payload);
+        if (res.ok && res.settings) {
+            applySettingsToUI(res.settings);
+            if (showSavedToast) {
+                showToast(escapeAttr(res.message || t('toast_settings_saved')), 'success');
+            }
+            return true;
+        }
+        showToast(escapeAttr(res.message || t('toast_settings_error')), 'error');
+        return false;
+    } catch (err) {
+        showToast(t('toast_settings_error'), 'error');
+        return false;
+    }
+}
+
+async function loadCaptureSettings() {
+    try {
+        const res = await API.getSettings();
+        if (res.ok) {
+            if (res.settings) applySettingsToUI(res.settings);
+            if (res.permissions) renderPermissionBadges(res.permissions);
+        }
+    } catch (err) {
+        // Non-fatal on initial load
+    }
+}
+
+async function onCaptureFolderCommit() {
+    await saveCaptureSettingsFromUI({ showSavedToast: true });
+}
+
+function onRegionInputLive() {
+    captureSettings.region = {
+        x: clampInt($('#reg-x')?.value, -10000, 20000, captureSettings.region.x),
+        y: clampInt($('#reg-y')?.value, -10000, 20000, captureSettings.region.y),
+        width: clampInt($('#reg-w')?.value, 1, 20000, captureSettings.region.width),
+        height: clampInt($('#reg-h')?.value, 1, 20000, captureSettings.region.height),
+    };
+    updateCanvasCoordSummary();
+    redrawCaptureCanvas();
+}
+
+async function onRegionInputCommit() {
+    const wEl = $('#reg-w');
+    const hEl = $('#reg-h');
+    if (wEl) wEl.value = clampInt(wEl.value, 10, 20000, 800);
+    if (hEl) hEl.value = clampInt(hEl.value, 10, 20000, 600);
+    onRegionInputLive();
+    await saveCaptureSettingsFromUI();
+}
+
+function syncIntervalFromRange(val) {
+    const clamped = clampInt(val, 1, 10, 3);
+    if ($('#capture-interval')) $('#capture-interval').value = clamped;
+    captureSettings.interval_sec = clamped;
+}
+
+async function syncIntervalFromNumber(val, commit = false) {
+    const clamped = clampInt(val, 1, 10, 3);
+    if ($('#capture-interval-range')) $('#capture-interval-range').value = clamped;
+    captureSettings.interval_sec = clamped;
+    if (commit) {
+        if ($('#capture-interval')) $('#capture-interval').value = clamped;
+        await saveCaptureSettingsFromUI();
+    }
+}
+
+async function onMaxShotsCommit() {
+    const el = $('#capture-max-shots');
+    if (el && el.value.trim() !== '') {
+        const v = clampInt(el.value, 0, 100000, 0);
+        el.value = v > 0 ? String(v) : '';
+    }
+    await saveCaptureSettingsFromUI();
+}
+
+async function onPageTurnEnabledChange() {
+    const checked = $('#page-turn-enabled') ? Boolean($('#page-turn-enabled').checked) : true;
+    captureSettings.page_turn.enabled = checked;
+    const ptBody = $('#page-turn-config-body');
+    if (ptBody) ptBody.classList.toggle('is-disabled', !checked);
+    await saveCaptureSettingsFromUI();
+}
+
+function updatePageTurnModeUI(mode) {
+    const resolved = mode === 'click' ? 'click' : 'keyboard';
+    captureSettings.page_turn.mode = resolved;
+
+    const btnKb = $('#btn-pt-mode-keyboard');
+    const btnClick = $('#btn-pt-mode-click');
+    const panelKb = $('#pt-panel-keyboard');
+    const panelClick = $('#pt-panel-click');
+
+    if (btnKb) btnKb.classList.toggle('active', resolved === 'keyboard');
+    if (btnClick) btnClick.classList.toggle('active', resolved === 'click');
+    if (panelKb) panelKb.style.display = resolved === 'keyboard' ? 'flex' : 'none';
+    if (panelClick) panelClick.style.display = resolved === 'click' ? 'flex' : 'none';
+}
+
+async function setPageTurnMode(mode) {
+    updatePageTurnModeUI(mode);
+    await saveCaptureSettingsFromUI();
+}
+
+async function onKeyPresetChange(val) {
+    if (!val) return;
+    captureSettings.page_turn.key_name = val;
+    captureSettings.page_turn.key_code = null;
+    refreshKeyRecorderDisplay();
+    await saveCaptureSettingsFromUI({ showSavedToast: true });
+}
+
+function onClickPointInputLive() {
+    captureSettings.page_turn.click_x = clampInt($('#click-x')?.value, -10000, 20000, captureSettings.page_turn.click_x);
+    captureSettings.page_turn.click_y = clampInt($('#click-y')?.value, -10000, 20000, captureSettings.page_turn.click_y);
+    updateCanvasCoordSummary();
+    redrawCaptureCanvas();
+}
+
+async function onClickPointInputCommit() {
+    onClickPointInputLive();
+    await saveCaptureSettingsFromUI();
+}
+
+function activateCanvasClickTool() {
+    setCanvasTool('click');
+    setCaptureViewMode('canvas');
+    showToast(t('toast_canvas_click_hint'), 'info');
+}
+
+// ── TCC Permissions ─────────────────────────────────────────────────
+
+function renderPermissionBadges(perms) {
+    if (!perms) return;
+    lastPermissions = perms;
+
+    const applyBadge = (el, val) => {
+        if (!el) return;
+        el.className = 'perm-badge';
+        if (val === true) {
+            el.classList.add('perm-granted');
+            el.textContent = t('perm_granted');
+        } else if (val === false) {
+            el.classList.add('perm-missing');
+            el.textContent = t('perm_missing');
+        } else {
+            el.classList.add('perm-unknown');
+            el.textContent = t('perm_unknown');
+        }
+    };
+
+    applyBadge($('#perm-screen-badge'), perms.screen_recording);
+    applyBadge($('#perm-access-badge'), perms.accessibility);
+}
+
+async function requestCapturePermissions(prompt = true) {
+    const btn = $('#btn-check-permissions');
+    if (btn) btn.disabled = true;
+    try {
+        const res = await API.checkPermissions(prompt);
+        if (res.ok && res.permissions) {
+            renderPermissionBadges(res.permissions);
+            showToast(t('toast_permissions_updated'), 'info');
+        } else {
+            showToast(escapeAttr(res.message || t('toast_permissions_error')), 'error');
+        }
+    } catch (err) {
+        showToast(t('toast_permissions_error'), 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+// ── Screen Overlay Picker (Mode 1) & Preview Screen (Mode 2) ────────
+
+async function pickOverlay(target = 'region') {
+    const btn = target === 'click' ? $('#btn-pick-click-overlay') : $('#btn-pick-region-overlay');
+    if (btn) btn.disabled = true;
+    try {
+        const res = await API.pickOverlay(target);
+        if (res.ok) {
+            if (res.settings) {
+                applySettingsToUI(res.settings);
+            } else {
+                if (res.region) {
+                    captureSettings.region = { ...captureSettings.region, ...res.region };
+                }
+                if (res.click_point) {
+                    captureSettings.page_turn.click_x = res.click_point.click_x;
+                    captureSettings.page_turn.click_y = res.click_point.click_y;
+                }
+                applySettingsToUI(captureSettings);
+            }
+            showToast(t(target === 'click' ? 'toast_overlay_click_set' : 'toast_overlay_region_set'), 'success');
+        } else if (res.cancelled) {
+            showToast(escapeAttr(res.message || t('toast_overlay_cancelled')), 'info');
+        } else {
+            showToast(escapeAttr(res.message || t('toast_overlay_error')), 'error');
+        }
+    } catch (err) {
+        showToast(t('toast_overlay_error'), 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function capturePreviewScreen(delaySec = 0.2) {
+    const btnNow = $('#btn-capture-preview');
+    const btnDelay = $('#btn-capture-preview-delay');
+    if (btnNow) btnNow.disabled = true;
+    if (btnDelay) btnDelay.disabled = true;
+
+    if (delaySec >= 1.5) {
+        showToast(t('toast_preview_delay', { sec: Math.round(delaySec) }), 'info', 2200);
+    }
+
+    try {
+        const res = await API.previewScreen(delaySec);
+        if (!res.ok) {
+            if (res.permissions) renderPermissionBadges(res.permissions);
+            showToast(escapeAttr(res.message || t('toast_preview_failed')), 'error');
+            return;
+        }
+
+        const img = new Image();
+        img.onload = () => {
+            previewMeta = {
+                screen_width: Number(res.screen_width) || img.naturalWidth,
+                screen_height: Number(res.screen_height) || img.naturalHeight,
+                image_width: Number(res.image_width) || img.naturalWidth,
+                image_height: Number(res.image_height) || img.naturalHeight,
+                scale_factor: Number(res.scale_factor) || 1,
+                origin_x: Number(res.origin_x) || 0,
+                origin_y: Number(res.origin_y) || 0,
+            };
+            previewImageObj = img;
+
+            const scaleBadge = $('#canvas-scale-badge');
+            if (scaleBadge) {
+                const sf = Number.isInteger(previewMeta.scale_factor)
+                    ? `${previewMeta.scale_factor}x`
+                    : `${previewMeta.scale_factor.toFixed(1)}x`;
+                scaleBadge.textContent = `${previewMeta.screen_width}×${previewMeta.screen_height} pt • ${sf}`;
+            }
+
+            const emptyHint = $('#canvas-empty-hint');
+            const canvas = $('#capture-canvas');
+            if (emptyHint) emptyHint.style.display = 'none';
+            if (canvas) {
+                canvas.style.display = 'block';
+                canvas.width = previewMeta.image_width;
+                canvas.height = previewMeta.image_height;
+            }
+
+            setCaptureViewMode('canvas');
+            fitCanvasToStage();
+            redrawCaptureCanvas();
+            showToast(t('toast_preview_ready'), 'success');
+        };
+        img.onerror = () => {
+            showToast(t('toast_preview_failed'), 'error');
+        };
+        img.src = res.image_url;
+    } catch (err) {
+        showToast(t('toast_preview_failed'), 'error');
+    } finally {
+        if (btnNow) btnNow.disabled = false;
+        if (btnDelay) btnDelay.disabled = false;
+    }
+}
+
+// ── Interactive Canvas Rendering & Pointer Math ─────────────────────
+
+function setCanvasTool(tool) {
+    canvasTool = tool === 'click' ? 'click' : 'region';
+    const btnRegion = $('#btn-canvas-tool-region');
+    const btnClick = $('#btn-canvas-tool-click');
+    if (btnRegion) btnRegion.classList.toggle('active', canvasTool === 'region');
+    if (btnClick) btnClick.classList.toggle('active', canvasTool === 'click');
+}
+
+function setCaptureViewMode(mode) {
+    captureViewMode = mode === 'live' ? 'live' : 'canvas';
+    const btnCanvas = $('#btn-view-mode-canvas');
+    const btnLive = $('#btn-view-mode-live');
+    const canvasWrap = $('#canvas-view-container');
+    const liveWrap = $('#live-capture-view');
+
+    if (btnCanvas) btnCanvas.classList.toggle('active', captureViewMode === 'canvas');
+    if (btnLive) btnLive.classList.toggle('active', captureViewMode === 'live');
+    if (canvasWrap) canvasWrap.style.display = captureViewMode === 'canvas' ? 'flex' : 'none';
+    if (liveWrap) liveWrap.style.display = captureViewMode === 'live' ? 'flex' : 'none';
+
+    if (captureViewMode === 'canvas') {
+        requestAnimationFrame(() => {
+            fitCanvasToStage();
+            redrawCaptureCanvas();
+        });
+    }
+}
+
+function updateCanvasCoordSummary() {
+    const el = $('#canvas-coord-summary');
+    if (!el) return;
+    const reg = captureSettings.region;
+    const pt = captureSettings.page_turn;
+    el.textContent = t('canvas_coord_summary', {
+        x: reg.x,
+        y: reg.y,
+        w: reg.width,
+        h: reg.height,
+        cx: pt.click_x,
+        cy: pt.click_y,
+    });
+}
+
+function fitCanvasToStage() {
+    const stage = $('#capture-canvas-stage');
+    const canvas = $('#capture-canvas');
+    if (!stage || !canvas || !previewMeta || canvas.style.display === 'none') return;
+
+    const availW = Math.max(80, stage.clientWidth - 24);
+    const availH = Math.max(80, stage.clientHeight - 24);
+    const scale = Math.min(availW / previewMeta.image_width, availH / previewMeta.image_height);
+
+    const dispW = Math.max(40, Math.floor(previewMeta.image_width * scale));
+    const dispH = Math.max(40, Math.floor(previewMeta.image_height * scale));
+    canvas.style.width = `${dispW}px`;
+    canvas.style.height = `${dispH}px`;
+}
+
+function canvasEventToLogical(e) {
+    const canvas = $('#capture-canvas');
+    const rect = canvas.getBoundingClientRect();
+    const pxX = (e.clientX - rect.left) * (previewMeta.image_width / rect.width);
+    const pxY = (e.clientY - rect.top) * (previewMeta.image_height / rect.height);
+    const logicalX = Math.round(previewMeta.origin_x + pxX / previewMeta.scale_factor);
+    const logicalY = Math.round(previewMeta.origin_y + pxY / previewMeta.scale_factor);
+
+    const minX = previewMeta.origin_x;
+    const maxX = previewMeta.origin_x + previewMeta.screen_width;
+    const minY = previewMeta.origin_y;
+    const maxY = previewMeta.origin_y + previewMeta.screen_height;
+
+    return {
+        x: Math.max(minX, Math.min(maxX, logicalX)),
+        y: Math.max(minY, Math.min(maxY, logicalY)),
+    };
+}
+
+function drawRoundedRectPill(ctx, x, y, w, h, r) {
+    const radius = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+}
+
+function redrawCaptureCanvas() {
+    const canvas = $('#capture-canvas');
+    if (!canvas || !previewImageObj || !previewMeta) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(previewImageObj, 0, 0, canvas.width, canvas.height);
+
+    const rect = canvas.getBoundingClientRect();
+    const drawScale = rect.width > 0 ? previewMeta.image_width / rect.width : previewMeta.scale_factor;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const primaryColor = isDark ? '#0a84ff' : '#0066cc';
+
+    // 1. Draw Capture Region Box
+    const reg = captureSettings.region;
+    const rx = (reg.x - previewMeta.origin_x) * previewMeta.scale_factor;
+    const ry = (reg.y - previewMeta.origin_y) * previewMeta.scale_factor;
+    const rw = reg.width * previewMeta.scale_factor;
+    const rh = reg.height * previewMeta.scale_factor;
+
+    ctx.save();
+    ctx.fillStyle = isDark ? 'rgba(10, 132, 255, 0.16)' : 'rgba(0, 102, 204, 0.14)';
+    ctx.fillRect(rx, ry, rw, rh);
+
+    ctx.strokeStyle = primaryColor;
+    ctx.lineWidth = 2.5 * drawScale;
+    ctx.strokeRect(rx, ry, rw, rh);
+
+    // Corner handles
+    const handleSize = 7 * drawScale;
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = primaryColor;
+    ctx.lineWidth = 2 * drawScale;
+    const corners = [
+        [rx, ry],
+        [rx + rw, ry],
+        [rx, ry + rh],
+        [rx + rw, ry + rh],
+    ];
+    for (const [hx, hy] of corners) {
+        ctx.fillRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
+        ctx.strokeRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
+    }
+
+    // Region dimensions badge
+    const regLabel = `${reg.width}×${reg.height} pt`;
+    const fontSize = Math.round(12 * drawScale);
+    ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    const textW = ctx.measureText(regLabel).width;
+    const padX = 8 * drawScale;
+    const pillH = 22 * drawScale;
+    const pillW = textW + padX * 2;
+    const pillX = Math.max(4 * drawScale, Math.min(canvas.width - pillW - 4 * drawScale, rx));
+    const pillY = ry - pillH - 6 * drawScale >= 4 * drawScale ? ry - pillH - 6 * drawScale : ry + 6 * drawScale;
+
+    drawRoundedRectPill(ctx, pillX, pillY, pillW, pillH, 6 * drawScale);
+    ctx.fillStyle = primaryColor;
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(regLabel, pillX + padX, pillY + pillH / 2);
+    ctx.restore();
+
+    // 2. Draw Page-Turn Click Target Simultaneously
+    const cx = (captureSettings.page_turn.click_x - previewMeta.origin_x) * previewMeta.scale_factor;
+    const cy = (captureSettings.page_turn.click_y - previewMeta.origin_y) * previewMeta.scale_factor;
+
+    ctx.save();
+    const outerR = 13 * drawScale;
+    const innerR = 4.5 * drawScale;
+    const crossLen = 19 * drawScale;
+
+    // Crosshair lines
+    ctx.strokeStyle = '#ff9500';
+    ctx.lineWidth = 2 * drawScale;
+    ctx.beginPath();
+    ctx.moveTo(cx - crossLen, cy);
+    ctx.lineTo(cx + crossLen, cy);
+    ctx.moveTo(cx, cy - crossLen);
+    ctx.lineTo(cx, cy + crossLen);
+    ctx.stroke();
+
+    // Outer translucent circle + ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 149, 0, 0.22)';
+    ctx.fill();
+    ctx.lineWidth = 2.2 * drawScale;
+    ctx.strokeStyle = '#ff9500';
+    ctx.stroke();
+
+    // Inner dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff3b30';
+    ctx.fill();
+
+    // Click coordinate badge
+    const clickLabel = `Click (${captureSettings.page_turn.click_x}, ${captureSettings.page_turn.click_y})`;
+    ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    const cTextW = ctx.measureText(clickLabel).width;
+    const cPillW = cTextW + padX * 2;
+    const cPillX = Math.max(4 * drawScale, Math.min(canvas.width - cPillW - 4 * drawScale, cx + outerR + 6 * drawScale));
+    const cPillY = Math.max(4 * drawScale, Math.min(canvas.height - pillH - 4 * drawScale, cy - pillH / 2));
+
+    drawRoundedRectPill(ctx, cPillX, cPillY, cPillW, pillH, 6 * drawScale);
+    ctx.fillStyle = '#ff9500';
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(clickLabel, cPillX + padX, cPillY + pillH / 2);
+    ctx.restore();
+}
+
+function initCaptureCanvas() {
+    const canvas = $('#capture-canvas');
+    const stage = $('#capture-canvas-stage');
+    if (!canvas) return;
+
+    canvas.addEventListener('pointerdown', (e) => {
+        if (!previewMeta) return;
+        const pt = canvasEventToLogical(e);
+
+        if (canvasTool === 'click') {
+            captureSettings.page_turn.click_x = pt.x;
+            captureSettings.page_turn.click_y = pt.y;
+            if ($('#click-x')) $('#click-x').value = pt.x;
+            if ($('#click-y')) $('#click-y').value = pt.y;
+            updateCanvasCoordSummary();
+            redrawCaptureCanvas();
+            saveCaptureSettingsFromUI({ showSavedToast: false });
+            showToast(t('toast_click_updated', { x: pt.x, y: pt.y }), 'success');
+            return;
+        }
+
+        // Region drag mode
+        isDrawingRegion = true;
+        dragStartLogical = pt;
+        regionBeforeDrag = { ...captureSettings.region };
+        if (canvas.setPointerCapture) {
+            try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+        }
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+        if (!isDrawingRegion || !previewMeta || !dragStartLogical) return;
+        const pt = canvasEventToLogical(e);
+        const x = Math.min(dragStartLogical.x, pt.x);
+        const y = Math.min(dragStartLogical.y, pt.y);
+        const w = Math.abs(pt.x - dragStartLogical.x);
+        const h = Math.abs(pt.y - dragStartLogical.y);
+
+        captureSettings.region = {
+            x,
+            y,
+            width: Math.max(10, w),
+            height: Math.max(10, h),
+        };
+        if ($('#reg-x')) $('#reg-x').value = captureSettings.region.x;
+        if ($('#reg-y')) $('#reg-y').value = captureSettings.region.y;
+        if ($('#reg-w')) $('#reg-w').value = captureSettings.region.width;
+        if ($('#reg-h')) $('#reg-h').value = captureSettings.region.height;
+        updateCanvasCoordSummary();
+        redrawCaptureCanvas();
+    });
+
+    const finishRegionDrag = async (e) => {
+        if (!isDrawingRegion || !previewMeta || !dragStartLogical) return;
+        isDrawingRegion = false;
+
+        const pt = canvasEventToLogical(e);
+        const dx = Math.abs(pt.x - dragStartLogical.x);
+        const dy = Math.abs(pt.y - dragStartLogical.y);
+
+        if (dx < 5 || dy < 5) {
+            // Ignore accidental single click in region mode
+            if (regionBeforeDrag) {
+                captureSettings.region = { ...regionBeforeDrag };
+                if ($('#reg-x')) $('#reg-x').value = captureSettings.region.x;
+                if ($('#reg-y')) $('#reg-y').value = captureSettings.region.y;
+                if ($('#reg-w')) $('#reg-w').value = captureSettings.region.width;
+                if ($('#reg-h')) $('#reg-h').value = captureSettings.region.height;
+                updateCanvasCoordSummary();
+                redrawCaptureCanvas();
+            }
+            dragStartLogical = null;
+            regionBeforeDrag = null;
+            return;
+        }
+
+        const x = Math.min(dragStartLogical.x, pt.x);
+        const y = Math.min(dragStartLogical.y, pt.y);
+        const w = Math.max(10, dx);
+        const h = Math.max(10, dy);
+
+        captureSettings.region = { x, y, width: w, height: h };
+        if ($('#reg-x')) $('#reg-x').value = x;
+        if ($('#reg-y')) $('#reg-y').value = y;
+        if ($('#reg-w')) $('#reg-w').value = w;
+        if ($('#reg-h')) $('#reg-h').value = h;
+
+        dragStartLogical = null;
+        regionBeforeDrag = null;
+
+        updateCanvasCoordSummary();
+        redrawCaptureCanvas();
+        await saveCaptureSettingsFromUI({ showSavedToast: false });
+        showToast(t('toast_region_updated', { x, y, w, h }), 'success');
+    };
+
+    canvas.addEventListener('pointerup', finishRegionDrag);
+    canvas.addEventListener('pointercancel', finishRegionDrag);
+
+    if (stage && typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => {
+            if (activeTab === 'capture' && captureViewMode === 'canvas') {
+                fitCanvasToStage();
+                redrawCaptureCanvas();
+            }
+        });
+        ro.observe(stage);
+    }
+
+    window.addEventListener('resize', () => {
+        if (activeTab === 'capture' && captureViewMode === 'canvas') {
+            fitCanvasToStage();
+            redrawCaptureCanvas();
+        }
+    });
+}
+
+// ── Auto Capture Loop Controls & Live View ──────────────────────────
+
+function renderLiveShot(filename, saveFolder) {
+    if (!filename) return;
+    selectedLiveFile = filename;
+
+    const img = $('#live-latest-img');
+    const empty = $('#live-empty-hint');
+    const nameBadge = $('#live-latest-filename');
+
+    if (nameBadge) nameBadge.textContent = filename;
+    if (empty) empty.style.display = 'none';
+    if (img) {
+        const folderParam = saveFolder ? `&folder=${encodeURIComponent(saveFolder)}` : '';
+        img.src = `/api/capture/latest-image?name=${encodeURIComponent(filename)}${folderParam}&t=${Date.now()}`;
+        img.style.display = 'block';
+    }
+
+    $$('#live-recent-list .live-recent-chip').forEach(chip => {
+        chip.classList.toggle('active', chip.getAttribute('data-filename') === filename);
+    });
+}
+
+function renderRecentCapturedFiles(files, saveFolder) {
+    const listEl = $('#live-recent-list');
+    if (!listEl) return;
+
+    if (!files || files.length === 0) {
+        listEl.innerHTML = '';
+        return;
+    }
+
+    const recent = files.slice(-20);
+    listEl.innerHTML = recent.map(name => {
+        const attrName = escapeAttr(name);
+        const activeClass = name === selectedLiveFile ? ' active' : '';
+        return `<button type="button" class="live-recent-chip${activeClass}" data-filename="${attrName}" data-folder="${escapeAttr(saveFolder || '')}" onclick="renderLiveShot(this.getAttribute('data-filename'), this.getAttribute('data-folder'))">${attrName}</button>`;
+    }).join('');
+}
+
+function renderCaptureStatus(status) {
+    if (!status) return;
+    lastCaptureStatus = status;
+
+    const running = Boolean(status.running);
+    const phase = status.phase || 'idle';
+
+    // Buttons
+    const btnStart = $('#btn-capture-start');
+    const btnStop = $('#btn-capture-stop');
+    if (btnStart) btnStart.disabled = running;
+    if (btnStop) {
+        btnStop.disabled = !running;
+        btnStop.classList.toggle('is-running', running);
+    }
+
+    // Header dot
+    const headerDot = $('#header-capture-dot');
+    if (headerDot) {
+        headerDot.className = 'header-capture-dot';
+        if (running && phase === 'countdown') {
+            headerDot.classList.add('countdown');
+        } else if (running) {
+            headerDot.classList.add('active');
+        } else if (phase === 'error') {
+            headerDot.classList.add('error');
+        }
+    }
+
+    // Status card dot & phase
+    const statusDot = $('#capture-status-dot');
+    if (statusDot) {
+        statusDot.className = 'capture-status-dot';
+        if (phase === 'countdown' || phase === 'capturing' || phase === 'completed' || phase === 'error') {
+            statusDot.classList.add(phase);
+        }
+    }
+
+    const phaseEl = $('#capture-status-phase');
+    if (phaseEl) {
+        if (phase === 'countdown') {
+            phaseEl.textContent = t('phase_countdown', { sec: status.countdown_remaining ?? 0 });
+        } else if (phase === 'capturing') {
+            phaseEl.textContent = t('phase_capturing');
+        } else if (phase === 'completed') {
+            phaseEl.textContent = t('phase_completed');
+        } else if (phase === 'stopped') {
+            phaseEl.textContent = t('phase_stopped');
+        } else if (phase === 'error') {
+            phaseEl.textContent = t('phase_error');
+        } else {
+            phaseEl.textContent = t('phase_idle');
+        }
+    }
+
+    const counterEl = $('#capture-status-counter');
+    if (counterEl) {
+        const count = Number(status.captured_count || 0);
+        const max = Number(status.max_shots || 0);
+        counterEl.textContent = max > 0 ? `${count} / ${max}` : `${count} / ∞`;
+    }
+
+    const errEl = $('#capture-status-error');
+    if (errEl) {
+        if (status.last_error) {
+            errEl.textContent = status.last_error;
+            errEl.style.display = 'block';
+        } else {
+            errEl.textContent = '';
+            errEl.style.display = 'none';
+        }
+    }
+
+    // Live shot preview update
+    if (status.last_file && status.last_file !== lastSeenCapturedFile) {
+        lastSeenCapturedFile = status.last_file;
+        renderRecentCapturedFiles(status.captured_files || [status.last_file], status.save_folder || captureSettings.save_folder);
+        renderLiveShot(status.last_file, status.save_folder || captureSettings.save_folder);
+        if (!autoSwitchedLiveForRun && running) {
+            autoSwitchedLiveForRun = true;
+            setCaptureViewMode('live');
+        }
+    } else if (status.captured_files && status.captured_files.length > 0) {
+        renderRecentCapturedFiles(status.captured_files, status.save_folder || captureSettings.save_folder);
+    }
+}
+
+function stopStatusPolling() {
+    if (statusPollTimer) {
+        clearInterval(statusPollTimer);
+        statusPollTimer = null;
+    }
+}
+
+function startStatusPolling() {
+    stopStatusPolling();
+    statusPollTimer = setInterval(async () => {
+        await pollCaptureStatusOnce();
+    }, 400);
+}
+
+async function pollCaptureStatusOnce() {
+    try {
+        const res = await API.getCaptureStatus();
+        if (!res.ok || !res.status) return;
+        const prevRunning = lastCaptureStatus.running;
+        renderCaptureStatus(res.status);
+
+        if (prevRunning && !res.status.running) {
+            stopStatusPolling();
+            if (res.status.phase === 'completed') {
+                showToast(t('toast_capture_completed', { count: res.status.captured_count || 0 }), 'success');
+            } else if (res.status.phase === 'error') {
+                showToast(escapeAttr(res.status.last_error || t('toast_capture_error')), 'error');
+            }
+        }
+    } catch (err) {
+        // Ignore transient poll error
+    }
+}
+
+async function startCapture() {
+    const rawW = parseInt($('#reg-w')?.value, 10);
+    const rawH = parseInt($('#reg-h')?.value, 10);
+    if (isNaN(rawW) || isNaN(rawH) || rawW < 10 || rawH < 10) {
+        showToast(t('toast_capture_invalid_region'), 'warning');
+        return;
+    }
+
+    const payload = collectSettingsFromUI();
+    if (!payload.save_folder) {
+        showToast(t('toast_capture_folder_required'), 'warning');
+        return;
+    }
+
+    autoSwitchedLiveForRun = false;
+    lastSeenCapturedFile = '';
+
+    try {
+        const res = await API.startCapture(payload);
+        if (res.ok) {
+            if (res.settings) applySettingsToUI(res.settings);
+            if (res.status) renderCaptureStatus(res.status);
+            showToast(escapeAttr(res.message || t('toast_capture_started')), 'success');
+            startStatusPolling();
+        } else {
+            showToast(escapeAttr(res.message || t('toast_capture_error')), 'error');
+        }
+    } catch (err) {
+        showToast(t('toast_capture_error'), 'error');
+    }
+}
+
+async function stopCapture() {
+    try {
+        const res = await API.stopCapture();
+        stopStatusPolling();
+        if (res.ok) {
+            if (res.status) renderCaptureStatus(res.status);
+            showToast(escapeAttr(res.message || t('toast_capture_stopped')), 'info');
+        } else {
+            showToast(escapeAttr(res.message || t('toast_capture_error')), 'error');
+        }
+    } catch (err) {
+        showToast(t('toast_capture_error'), 'error');
+    }
+}
+
 // ── Keyboard shortcuts ──────────────────────────────────────────────
 
 document.addEventListener('keydown', (e) => {
+    if (document.activeElement && document.activeElement.id === 'key-recorder-input') {
+        return;
+    }
+
     const imageModal = $('#image-modal');
     const isImageModalOpen = imageModal && imageModal.style.display !== 'none' && !imageModal.classList.contains('closing');
 
@@ -729,7 +2087,8 @@ function toggleTheme() {
     const target = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', target);
     localStorage.setItem('user_theme', target);
-    showToast(t('toast_theme_change', {theme: target === 'dark' ? t('theme_dark') : t('theme_light')}));
+    redrawCaptureCanvas();
+    showToast(t('toast_theme_change', { theme: target === 'dark' ? t('theme_dark') : t('theme_light') }));
 }
 
 function initTheme() {
@@ -745,13 +2104,27 @@ initTheme();
 
 // ── Init ────────────────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const langSelect = document.getElementById('lang-select');
     if (langSelect) {
         langSelect.value = currentLang;
     }
+    const headerLangSelect = document.getElementById('header-lang-select');
+    if (headerLangSelect) {
+        headerLangSelect.value = currentLang;
+    }
+    document.documentElement.setAttribute('lang', currentLang);
+
     updateDOMTranslations();
     renderEmptyState();
     initResizer();
     loadNotes();
+    initKeyRecorder();
+    initCaptureCanvas();
+
+    await loadCaptureSettings();
+    await pollCaptureStatusOnce();
+    if (lastCaptureStatus.running) {
+        startStatusPolling();
+    }
 });
