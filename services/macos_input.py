@@ -161,26 +161,128 @@ _IGNORED_WINDOW_OWNERS = {
     "Control Center",
     "Notification Center",
     "Screenshot Indexing",
+    "Python",
+    "python3",
+    "python3.11",
+    "python3.15",
+    "CursorUIViewService",
+    "Siri",
+    "Spotlight",
+    "SystemUIServer",
+    "Open and Save Panel Service",
+    "universalAccessAuthWarn",
+    "CoreServicesUIAgent",
+    "UserNotificationCenter",
 }
 
+_LOW_PRIORITY_WINDOW_OWNERS = {
+    "Finder",
+    "Antigravity",
+    "Code",
+    "Terminal",
+    "iTerm2",
+}
+
+_SYSTEM_UI_OWNERS = {
+    "Window Server",
+    "WindowManager",
+    "Dock",
+    "Control Center",
+    "Notification Center",
+    "CursorUIViewService",
+    "Siri",
+    "Spotlight",
+    "SystemUIServer",
+    "universalAccessAuthWarn",
+    "CoreServicesUIAgent",
+    "UserNotificationCenter",
+}
+
+_MIN_FULL_WINDOW_WIDTH = 200.0
+_MIN_FULL_WINDOW_HEIGHT = 150.0
 _MODIFIER_CLEAR_MASK = 0x100000 | 0x20000 | 0x80000 | 0x40000
 
 
-def _is_accessibility_trusted() -> bool:
-    """Return True if Accessibility TCC is granted (or running against a mocked Quartz module)."""
-    quartz_mod = sys.modules.get("Quartz")
-    if quartz_mod is not None and not hasattr(quartz_mod, "CGWindowListCopyWindowInfo"):
-        return True
-    try:
-        from services.macos_permissions import _check_accessibility
+def _window_bounds(win: dict[str, Any]) -> tuple[float, float, float, float]:
+    bounds = win.get("kCGWindowBounds") or {}
+    return (
+        float(bounds.get("X", 0)),
+        float(bounds.get("Y", 0)),
+        float(bounds.get("Width", 0)),
+        float(bounds.get("Height", 0)),
+    )
 
-        return _check_accessibility(prompt=False)
+
+def _is_full_window(width: float, height: float) -> bool:
+    return width >= _MIN_FULL_WINDOW_WIDTH and height >= _MIN_FULL_WINDOW_HEIGHT
+
+
+def _overlaps_region(
+    wx1: float,
+    wy1: float,
+    width: float,
+    height: float,
+    region_box: tuple[float, float, float, float] | None,
+) -> bool:
+    if region_box is None:
+        return True
+    rx1, ry1, rx2, ry2 = region_box
+    wx2 = wx1 + width
+    wy2 = wy1 + height
+    return min(rx2, wx2) > max(rx1, wx1) and min(ry2, wy2) > max(ry1, wy1)
+
+
+def _parse_region_box(
+    region: dict[str, Any] | None,
+) -> tuple[float, float, float, float] | None:
+    if not isinstance(region, dict):
+        return None
+    w = float(region.get("width", 0))
+    h = float(region.get("height", 0))
+    if w <= 0 or h <= 0:
+        return None
+    rx1 = float(region.get("x", 0))
+    ry1 = float(region.get("y", 0))
+    return (rx1, ry1, rx1 + w, ry1 + h)
+
+
+def _topmost_full_window_pid() -> int | None:
+    """Return PID owning the topmost full-size non-system on-screen window."""
+    try:
+        import Quartz
+
+        if not hasattr(Quartz, "CGWindowListCopyWindowInfo"):
+            return None
+        wins = (
+            Quartz.CGWindowListCopyWindowInfo(
+                Quartz.kCGWindowListOptionOnScreenOnly
+                | Quartz.kCGWindowListExcludeDesktopElements,
+                Quartz.kCGNullWindowID,
+            )
+            or []
+        )
+        for win in wins:
+            if win.get("kCGWindowLayer", -1) != 0:
+                continue
+            pid = win.get("kCGWindowOwnerPID")
+            owner = str(win.get("kCGWindowOwnerName") or "")
+            if not pid or owner in _SYSTEM_UI_OWNERS:
+                continue
+            _, _, width, height = _window_bounds(win)
+            if _is_full_window(width, height):
+                return int(pid)
+        return None
     except Exception:
-        return False
+        return None
 
 
 def find_target_pid_for_region(region: dict[str, Any] | None = None) -> int | None:
-    """Find the PID of the frontmost external window overlapping ``region``."""
+    """Find the PID of the target external window overlapping ``region``.
+
+    Ignores system UI overlays and small Stage Manager strip thumbnails, checks
+    Stage Manager off-stage full windows for apps present on screen, and only
+    falls back to low-priority desktop/editor owners when no primary app matches.
+    """
     if sys.platform != "darwin":
         return None
     try:
@@ -189,23 +291,26 @@ def find_target_pid_for_region(region: dict[str, Any] | None = None) -> int | No
         if not hasattr(Quartz, "CGWindowListCopyWindowInfo"):
             return None
 
-        wins = Quartz.CGWindowListCopyWindowInfo(
-            Quartz.kCGWindowListOptionOnScreenOnly
-            | Quartz.kCGWindowListExcludeDesktopElements,
-            Quartz.kCGNullWindowID,
+        onscreen_wins = (
+            Quartz.CGWindowListCopyWindowInfo(
+                Quartz.kCGWindowListOptionOnScreenOnly
+                | Quartz.kCGWindowListExcludeDesktopElements,
+                Quartz.kCGNullWindowID,
+            )
+            or []
         )
-        if not wins:
+        if not onscreen_wins:
             return None
 
         my_pid = os.getpid()
-        has_region = isinstance(region, dict) and float(region.get("width", 0)) > 0 and float(region.get("height", 0)) > 0
-        rx1 = float(region.get("x", 0)) if has_region else 0.0
-        ry1 = float(region.get("y", 0)) if has_region else 0.0
-        rx2 = rx1 + float(region.get("width", 0)) if has_region else 0.0
-        ry2 = ry1 + float(region.get("height", 0)) if has_region else 0.0
+        region_box = _parse_region_box(region)
 
-        fallback_pid: int | None = None
-        for win in wins:
+        onscreen_pids: set[int] = set()
+        onscreen_low_overlap: int | None = None
+        onscreen_fallback_primary: int | None = None
+        onscreen_fallback_low: int | None = None
+
+        for win in onscreen_wins:
             if win.get("kCGWindowLayer", -1) != 0:
                 continue
             pid = win.get("kCGWindowOwnerPID")
@@ -213,21 +318,66 @@ def find_target_pid_for_region(region: dict[str, Any] | None = None) -> int | No
             if not pid or int(pid) == my_pid or owner in _IGNORED_WINDOW_OWNERS:
                 continue
             pid_int = int(pid)
-            if fallback_pid is None:
-                fallback_pid = pid_int
+            onscreen_pids.add(pid_int)
 
-            if not has_region:
-                return pid_int
+            wx, wy, width, height = _window_bounds(win)
+            if not _is_full_window(width, height):
+                continue
 
-            bounds = win.get("kCGWindowBounds") or {}
-            wx1 = float(bounds.get("X", 0))
-            wy1 = float(bounds.get("Y", 0))
-            wx2 = wx1 + float(bounds.get("Width", 0))
-            wy2 = wy1 + float(bounds.get("Height", 0))
-            if min(rx2, wx2) > max(rx1, wx1) and min(ry2, wy2) > max(ry1, wy1):
-                return pid_int
+            is_low = owner in _LOW_PRIORITY_WINDOW_OWNERS
+            if not is_low and onscreen_fallback_primary is None:
+                onscreen_fallback_primary = pid_int
+            elif is_low and onscreen_fallback_low is None:
+                onscreen_fallback_low = pid_int
 
-        return fallback_pid
+            if _overlaps_region(wx, wy, width, height, region_box):
+                if not is_low:
+                    return pid_int
+                if onscreen_low_overlap is None:
+                    onscreen_low_overlap = pid_int
+
+        all_wins = (
+            Quartz.CGWindowListCopyWindowInfo(
+                Quartz.kCGWindowListExcludeDesktopElements,
+                Quartz.kCGNullWindowID,
+            )
+            or []
+        )
+        stage_low_overlap: int | None = None
+        stage_fallback_primary: int | None = None
+        for win in all_wins:
+            if win.get("kCGWindowLayer", -1) != 0:
+                continue
+            pid = win.get("kCGWindowOwnerPID")
+            owner = str(win.get("kCGWindowOwnerName") or "")
+            if not pid or int(pid) == my_pid or owner in _IGNORED_WINDOW_OWNERS:
+                continue
+            pid_int = int(pid)
+            if pid_int not in onscreen_pids:
+                continue
+
+            wx, wy, width, height = _window_bounds(win)
+            if not _is_full_window(width, height):
+                continue
+
+            is_low = owner in _LOW_PRIORITY_WINDOW_OWNERS
+            if not is_low and stage_fallback_primary is None:
+                stage_fallback_primary = pid_int
+
+            if _overlaps_region(wx, wy, width, height, region_box):
+                if not is_low:
+                    return pid_int
+                if stage_low_overlap is None:
+                    stage_low_overlap = pid_int
+
+        return (
+            onscreen_low_overlap
+            or stage_low_overlap
+            or onscreen_fallback_primary
+            or stage_fallback_primary
+            or onscreen_fallback_low
+            or next(iter(onscreen_pids), None)
+        )
     except Exception:
         return None
 
@@ -245,7 +395,10 @@ def activate_target_app(target_pid: int | None) -> bool:
 
         ws = AppKit.NSWorkspace.sharedWorkspace()
         front = ws.frontmostApplication() if ws is not None else None
-        if front is not None and int(front.processIdentifier()) == pid:
+        is_front = front is not None and int(front.processIdentifier()) == pid
+        topmost_pid = _topmost_full_window_pid()
+        is_topmost = topmost_pid is None or topmost_pid == pid
+        if is_front and is_topmost:
             return True
 
         running_app = AppKit.NSRunningApplication.runningApplicationWithProcessIdentifier_(pid)
@@ -255,7 +408,7 @@ def activate_target_app(target_pid: int | None) -> bool:
         # NSApplicationActivateIgnoringOtherApps = 1 << 1 = 2
         activated = bool(running_app.activateWithOptions_(2))
         if activated:
-            time.sleep(0.06)
+            time.sleep(0.12)
         return activated
     except Exception:
         return False
@@ -306,9 +459,7 @@ def send_keyboard_shortcut(key_code: int = 124, target_pid: int | None = None) -
         Quartz.CGEventPost(Quartz.kCGHIDEventTap, key_down)
         time.sleep(0.035)
         Quartz.CGEventPost(Quartz.kCGHIDEventTap, key_up)
-
-        if _is_accessibility_trusted():
-            return True
+        return True
     except Exception:
         pass
 
@@ -321,7 +472,7 @@ def send_keyboard_shortcut(key_code: int = 124, target_pid: int | None = None) -
             ],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=1.5,
         )
         return proc.returncode == 0
     except Exception:

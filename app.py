@@ -1,3 +1,4 @@
+import atexit
 import os
 import re
 import json
@@ -14,8 +15,12 @@ if "--overlay-picker" in sys.argv:
 
 from flask import Flask, render_template, jsonify, request, send_from_directory
 
-from services.config_store import load_config, save_config
-from services.macos_capture import capture_controller, capture_fullscreen_preview
+from services.config_store import load_config, reset_config, save_config
+from services.macos_capture import (
+    capture_controller,
+    capture_fullscreen_preview,
+    cleanup_preview_file,
+)
 from services.macos_input import resolve_key_code
 from services.macos_overlay import pick_screen_overlay
 from services.macos_permissions import check_permissions
@@ -478,8 +483,8 @@ def capture_start():
             state["folder_path"] = folder_path
 
     perms = None
-    if not app.config.get("TESTING") and saved.get("page_turn", {}).get("enabled", True):
-        perms = check_permissions(prompt=True)
+    if not app.config.get("TESTING"):
+        perms = check_permissions(prompt=False)
 
     res = capture_controller.start(saved, on_shot_callback=_on_shot)
     if not res or not res.get("ok"):
@@ -506,7 +511,7 @@ def capture_start():
     }
     if perms is not None:
         resp_payload["permissions"] = perms
-        if not perms.get("accessibility"):
+        if saved.get("page_turn", {}).get("enabled", True) and not perms.get("accessibility"):
             resp_payload["accessibility_warning"] = get_msg("accessibility_warning", lang)
     return jsonify(resp_payload)
 
@@ -563,9 +568,30 @@ def get_capture_latest_image():
     return send_from_directory(folder, filename, max_age=0)
 
 
+def cleanup_session():
+    """Stop active capture, wipe persisted session config/preview, and reset state."""
+    try:
+        capture_controller.reset()
+    except Exception:
+        pass
+    try:
+        reset_config()
+    except Exception:
+        pass
+    try:
+        cleanup_preview_file()
+    except Exception:
+        pass
+    state["folder_path"] = ""
+    state["files"] = []
+
+
 if __name__ == "__main__":
     import threading
     import webview
+
+    cleanup_session()
+    atexit.register(cleanup_session)
 
     # Start Flask in a background thread
     flask_thread = threading.Thread(
@@ -576,4 +602,7 @@ if __name__ == "__main__":
 
     # Open PyWebView window
     webview.create_window(f"Screenshot Indexing v{VERSION}", "http://127.0.0.1:5050", width=1200, height=800)
-    webview.start()
+    try:
+        webview.start()
+    finally:
+        cleanup_session()

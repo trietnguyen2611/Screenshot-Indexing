@@ -889,22 +889,17 @@ function initResizer() {
     });
 }
 
-// ── Notes Persistence ───────────────────────────────────────────────
+// ── Notes (Session-only) ─────────────────────────────────────────────
 
 function saveNotes() {
-    const input = $('#notes-input');
-    if (input) {
-        localStorage.setItem('user_temp_notes', input.value);
-    }
+    // Session-only notes: do not persist across app restarts.
 }
 
 function loadNotes() {
+    localStorage.removeItem('user_temp_notes');
     const input = $('#notes-input');
     if (input) {
-        const saved = localStorage.getItem('user_temp_notes');
-        if (saved !== null) {
-            input.value = saved;
-        }
+        input.value = '';
     }
 }
 
@@ -1872,6 +1867,19 @@ initTheme();
 
 // ── Init ────────────────────────────────────────────────────────────
 
+function resetSessionInputs() {
+    currentFolder = '';
+    currentFiles = [];
+    const folderInput = $('#folder-input');
+    const startInput = $('#input-start');
+    const endInput = $('#input-end');
+    const fileCount = $('#file-count');
+    if (folderInput) folderInput.value = '';
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
+    if (fileCount) fileCount.textContent = '';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     const headerLangSelect = document.getElementById('header-lang-select');
     if (headerLangSelect) {
@@ -1880,6 +1888,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.documentElement.setAttribute('lang', currentLang);
 
     updateDOMTranslations();
+    resetSessionInputs();
     renderEmptyState();
     initResizer();
     loadNotes();

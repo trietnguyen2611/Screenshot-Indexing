@@ -271,6 +271,13 @@ class TestConfigStore(BaseIsolatedTestCase):
         raw_disk = json.loads(self.config_path.read_text(encoding="utf-8"))
         self.assertEqual(raw_disk["interval_sec"], 1)
 
+        # Verify reset_config deletes persisted config file and restores defaults
+        reset = config_store.reset_config()
+        self.assertFalse(self.config_path.exists())
+        self.assertEqual(reset["save_folder"], "")
+        self.assertEqual(reset["interval_sec"], 3)
+        self.assertEqual(reset["max_shots"], 0)
+
 
 class TestMacOSInput(unittest.TestCase):
     """Verify keyCode mapping and mocked keyboard/click page-turn actions."""
@@ -351,35 +358,57 @@ class TestMacOSInput(unittest.TestCase):
             self.assertEqual(cmd[0], "osascript")
             self.assertIn("121", cmd[2])
 
-    def test_untrusted_quartz_falls_back_to_osascript_and_target_pid_activation(self) -> None:
+    def test_target_pid_stage_manager_finder_filtering_and_quartz_shortcut(self) -> None:
+        onscreen_windows = [
+            {
+                "kCGWindowLayer": 0,
+                "kCGWindowOwnerPID": os.getpid(),
+                "kCGWindowOwnerName": "Python",
+                "kCGWindowBounds": {"X": 0, "Y": 0, "Width": 1200, "Height": 800},
+            },
+            {
+                "kCGWindowLayer": 0,
+                "kCGWindowOwnerPID": 608,
+                "kCGWindowOwnerName": "Finder",
+                "kCGWindowBounds": {"X": 150, "Y": 150, "Width": 820, "Height": 450},
+            },
+            {
+                "kCGWindowLayer": 0,
+                "kCGWindowOwnerPID": 43210,
+                "kCGWindowOwnerName": "Safari",
+                # Stage Manager strip thumbnail (too small to overlap full capture region)
+                "kCGWindowBounds": {"X": 16, "Y": 599, "Width": 144, "Height": 132},
+            },
+        ]
+        all_windows = onscreen_windows + [
+            {
+                "kCGWindowLayer": 0,
+                "kCGWindowOwnerPID": 43210,
+                "kCGWindowOwnerName": "Safari",
+                # Full off-stage window in Stage Manager overlapping capture region
+                "kCGWindowBounds": {"X": 300, "Y": 200, "Width": 900, "Height": 700},
+            }
+        ]
+
+        def copy_win_info(opts, _win_id):
+            if opts & 1:  # kCGWindowListOptionOnScreenOnly
+                return onscreen_windows
+            return all_windows
+
         fake_quartz = types.SimpleNamespace(
             kCGHIDEventTap=0,
             kCGWindowListOptionOnScreenOnly=1,
             kCGWindowListExcludeDesktopElements=16,
             kCGNullWindowID=0,
-            CGWindowListCopyWindowInfo=mock.MagicMock(
-                return_value=[
-                    {
-                        "kCGWindowLayer": 0,
-                        "kCGWindowOwnerPID": os.getpid(),
-                        "kCGWindowOwnerName": "Python",
-                        "kCGWindowBounds": {"X": 0, "Y": 0, "Width": 1200, "Height": 800},
-                    },
-                    {
-                        "kCGWindowLayer": 0,
-                        "kCGWindowOwnerPID": 43210,
-                        "kCGWindowOwnerName": "Safari",
-                        "kCGWindowBounds": {"X": 100, "Y": 100, "Width": 900, "Height": 700},
-                    },
-                ]
-            ),
+            CGWindowListCopyWindowInfo=mock.MagicMock(side_effect=copy_win_info),
             CGEventCreateKeyboardEvent=mock.MagicMock(return_value=object()),
             CGEventPost=mock.MagicMock(),
         )
         running_app_mock = mock.MagicMock()
         running_app_mock.activateWithOptions_.return_value = True
         front_app_mock = mock.MagicMock()
-        front_app_mock.processIdentifier.return_value = os.getpid()
+        # Even if NSWorkspace briefly thinks target is frontmost, Finder (608) is topmost full window
+        front_app_mock.processIdentifier.return_value = 43210
         ws_mock = mock.MagicMock()
         ws_mock.frontmostApplication.return_value = front_app_mock
         fake_appkit = types.SimpleNamespace(
@@ -388,22 +417,27 @@ class TestMacOSInput(unittest.TestCase):
                 runningApplicationWithProcessIdentifier_=mock.MagicMock(return_value=running_app_mock)
             ),
         )
-        completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
         with mock.patch.object(macos_input.sys, "platform", "darwin"), mock.patch.dict(
             sys.modules, {"Quartz": fake_quartz, "AppKit": fake_appkit}
         ), mock.patch.object(
-            macos_input, "_is_accessibility_trusted", return_value=False
-        ), mock.patch.object(
             macos_input.time, "sleep"
         ), mock.patch.object(
-            macos_input.subprocess, "run", return_value=completed
+            macos_input.subprocess, "run"
         ) as run_mock:
-            pid = macos_input.find_target_pid_for_region({"x": 200, "y": 200, "width": 400, "height": 400})
+            pid = macos_input.find_target_pid_for_region({"x": 320, "y": 220, "width": 600, "height": 400})
+            # Must select Stage Manager Safari (43210) instead of Finder (608)
             self.assertEqual(pid, 43210)
             self.assertTrue(macos_input.send_keyboard_shortcut(125, target_pid=pid))
             running_app_mock.activateWithOptions_.assert_called_once_with(2)
-            run_mock.assert_called_once()
-            self.assertIn("125", run_mock.call_args[0][0][2])
+            self.assertEqual(fake_quartz.CGEventPost.call_count, 2)
+            # Quartz succeeded -> must NOT invoke slow osascript
+            run_mock.assert_not_called()
+
+            # When only Finder overlaps and no Stage Manager primary window exists, falls back to Finder
+            all_windows[:] = onscreen_windows[:2]
+            onscreen_windows[:] = onscreen_windows[:2]
+            fallback_pid = macos_input.find_target_pid_for_region({"x": 320, "y": 220, "width": 600, "height": 400})
+            self.assertEqual(fallback_pid, 608)
 
 
 class TestMacOSCaptureAndSound(BaseIsolatedTestCase):
@@ -698,6 +732,74 @@ class TestMacOSCaptureAndSound(BaseIsolatedTestCase):
             elif preview_file.exists():
                 preview_file.unlink()
 
+    def test_capture_quartz_fallback_and_controller_reset(self) -> None:
+        preview_file = pathlib.Path(tempfile.gettempdir()) / "screenshot_indexing_preview.png"
+        backup_bytes = preview_file.read_bytes() if preview_file.exists() else None
+        try:
+            def failed_screencapture(cmd, capture_output=True, text=True, timeout=15):
+                return subprocess.CompletedProcess(
+                    cmd, 1, "", "could not create image from rect"
+                )
+
+            def fake_quartz_capture(output_path, region=None):
+                dims = (600, 400) if region else (3024, 1964)
+                pathlib.Path(output_path).write_bytes(_make_minimal_png(*dims))
+                return True
+
+            with mock.patch.object(macos_capture.sys, "platform", "darwin"), mock.patch.object(
+                macos_capture.subprocess, "run", side_effect=failed_screencapture
+            ), mock.patch.object(
+                macos_capture, "_capture_with_quartz", side_effect=fake_quartz_capture
+            ) as quartz_mock, mock.patch.object(
+                macos_capture,
+                "get_main_display_info",
+                return_value={
+                    "origin_x": 0,
+                    "origin_y": 0,
+                    "screen_width": 1512,
+                    "screen_height": 982,
+                },
+            ), mock.patch.object(
+                macos_capture, "play_shutter_sound", return_value=True
+            ) as sound_mock:
+                prev = macos_capture.capture_fullscreen_preview(delay_sec=0.0)
+                self.assertTrue(prev["ok"])
+                self.assertEqual(prev["image_width"], 3024)
+
+                shots_dir = self.tmp_path / "quartz_fallback_shots"
+                shot = macos_capture.capture_region_once(
+                    str(shots_dir),
+                    {"x": 100, "y": 100, "width": 300, "height": 200},
+                    sound_enabled=True,
+                )
+                self.assertTrue(shot["ok"])
+                self.assertTrue(pathlib.Path(shot["path"]).is_file())
+                self.assertEqual(quartz_mock.call_count, 2)
+                sound_mock.assert_called_once_with(True)
+
+            controller = macos_capture.CaptureController()
+            with controller._lock:
+                controller._phase = "error"
+                controller._captured_count = 7
+                controller._save_folder = "/tmp/old"
+                controller._last_file = "old.png"
+                controller._captured_files = ["old.png"]
+                controller._last_error = "old err"
+
+            reset_status = controller.reset()
+            self.assertFalse(reset_status["running"])
+            self.assertEqual(reset_status["phase"], "idle")
+            self.assertEqual(reset_status["captured_count"], 0)
+            self.assertEqual(reset_status["save_folder"], "")
+            self.assertIsNone(reset_status["last_file"])
+            self.assertEqual(reset_status["captured_files"], [])
+            self.assertIsNone(reset_status["last_error"])
+        finally:
+            if backup_bytes is not None:
+                preview_file.write_bytes(backup_bytes)
+            elif preview_file.exists():
+                preview_file.unlink()
+
     def test_overlay_subprocess_and_permissions_mocked(self) -> None:
         region_proc = subprocess.CompletedProcess(
             args=[],
@@ -982,6 +1084,30 @@ class TestNewFlaskCaptureEndpoints(BaseIsolatedTestCase):
                 f"/api/capture/latest-image?name={bad_name}&lang=en"
             )
             self.assertEqual(bad_resp.status_code, 404, f"Expected 404 for {bad_name!r}")
+
+    def test_cleanup_session_resets_state_config_and_preview(self) -> None:
+        preview_file = pathlib.Path(tempfile.gettempdir()) / "screenshot_indexing_preview.png"
+        backup_bytes = preview_file.read_bytes() if preview_file.exists() else None
+        try:
+            shots_dir = self.tmp_path / "session_shots"
+            shots_dir.mkdir()
+            config_store.save_config({"save_folder": str(shots_dir), "max_shots": 12})
+            app_module.state["folder_path"] = str(shots_dir)
+            app_module.state["files"] = ["Screenshot 2026-11-14 at 10.00.01.png"]
+            preview_file.write_bytes(_make_minimal_png(200, 150))
+
+            app_module.cleanup_session()
+
+            self.assertFalse(self.config_path.exists())
+            self.assertFalse(preview_file.exists())
+            self.assertEqual(app_module.state["folder_path"], "")
+            self.assertEqual(app_module.state["files"], [])
+            self.assertEqual(app_module.capture_controller.get_status()["phase"], "idle")
+        finally:
+            if backup_bytes is not None:
+                preview_file.write_bytes(backup_bytes)
+            elif preview_file.exists():
+                preview_file.unlink()
 
 
 class TestI18nAndPackagingIntegrity(unittest.TestCase):

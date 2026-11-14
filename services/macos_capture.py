@@ -102,6 +102,75 @@ def convert_canvas_point_to_logical(
     return {"click_x": click_x, "click_y": click_y}
 
 
+def cleanup_preview_file() -> None:
+    """Remove temporary full-screen preview PNG if it exists."""
+    preview_path = os.path.join(
+        tempfile.gettempdir(), "screenshot_indexing_preview.png"
+    )
+    try:
+        if os.path.isfile(preview_path):
+            os.remove(preview_path)
+    except OSError:
+        pass
+
+
+def _capture_with_quartz(
+    output_path: str, region: dict[str, int] | None = None
+) -> bool:
+    """Capture a PNG screenshot via Quartz CGWindowListCreateImage as fallback."""
+    if sys.platform != "darwin":
+        return False
+    try:
+        import AppKit
+        import Quartz
+
+        if not hasattr(Quartz, "CGWindowListCreateImage"):
+            return False
+
+        if region is None:
+            if hasattr(Quartz, "CGDisplayBounds") and hasattr(
+                Quartz, "CGMainDisplayID"
+            ):
+                rect = Quartz.CGDisplayBounds(Quartz.CGMainDisplayID())
+            else:
+                rect = Quartz.CGRectInfinite
+        else:
+            rect = Quartz.CGRectMake(
+                float(region["x"]),
+                float(region["y"]),
+                float(region["width"]),
+                float(region["height"]),
+            )
+
+        cg_img = Quartz.CGWindowListCreateImage(
+            rect,
+            Quartz.kCGWindowListOptionOnScreenOnly,
+            Quartz.kCGNullWindowID,
+            Quartz.kCGWindowImageDefault,
+        )
+        if cg_img is None:
+            return False
+
+        rep = AppKit.NSBitmapImageRep.alloc().initWithCGImage_(cg_img)
+        if rep is None:
+            return False
+
+        png_data = rep.representationUsingType_properties_(
+            AppKit.NSBitmapImageFileTypePNG, {}
+        )
+        if png_data is None:
+            return False
+
+        written = bool(png_data.writeToFile_atomically_(output_path, True))
+        return (
+            written
+            and os.path.isfile(output_path)
+            and os.path.getsize(output_path) > 0
+        )
+    except Exception:
+        return False
+
+
 def capture_fullscreen_preview(delay_sec: float = 0.2) -> dict[str, Any]:
     """Capture a full-screen temporary PNG preview and display scaling metadata.
 
@@ -127,6 +196,8 @@ def capture_fullscreen_preview(delay_sec: float = 0.2) -> dict[str, Any]:
     preview_path = os.path.join(
         tempfile.gettempdir(), "screenshot_indexing_preview.png"
     )
+    err = ""
+    captured = False
     try:
         proc = subprocess.run(
             ["screencapture", "-x", preview_path],
@@ -134,14 +205,28 @@ def capture_fullscreen_preview(delay_sec: float = 0.2) -> dict[str, Any]:
             text=True,
             timeout=15,
         )
-        if (
-            proc.returncode != 0
-            or not os.path.isfile(preview_path)
-            or os.path.getsize(preview_path) <= 0
-        ):
+        captured = (
+            proc.returncode == 0
+            and os.path.isfile(preview_path)
+            and os.path.getsize(preview_path) > 0
+        )
+        if not captured:
             err = proc.stderr.strip() or "Failed to capture preview screenshot"
-            return {"ok": False, "error": err}
+    except Exception as exc:
+        err = str(exc)
 
+    if not captured:
+        captured = _capture_with_quartz(preview_path, region=None)
+
+    if not captured:
+        if os.path.isfile(preview_path) and os.path.getsize(preview_path) == 0:
+            try:
+                os.remove(preview_path)
+            except OSError:
+                pass
+        return {"ok": False, "error": err or "Failed to capture preview screenshot"}
+
+    try:
         image_width, image_height = read_png_dimensions(preview_path)
         display = get_main_display_info()
         scale_factor = round(float(image_width) / float(display["screen_width"]), 4)
@@ -234,6 +319,8 @@ def capture_region_once(
     filename = generate_screenshot_filename(save_folder)
     full_path = os.path.join(save_folder, filename)
 
+    err = ""
+    captured = False
     try:
         proc = subprocess.run(
             ["screencapture", "-x", "-R", f"{x},{y},{w},{h}", full_path],
@@ -241,23 +328,32 @@ def capture_region_once(
             text=True,
             timeout=15,
         )
-        if (
-            proc.returncode != 0
-            or not os.path.isfile(full_path)
-            or os.path.getsize(full_path) <= 0
-        ):
-            if os.path.isfile(full_path) and os.path.getsize(full_path) == 0:
-                try:
-                    os.remove(full_path)
-                except OSError:
-                    pass
+        captured = (
+            proc.returncode == 0
+            and os.path.isfile(full_path)
+            and os.path.getsize(full_path) > 0
+        )
+        if not captured:
             err = proc.stderr.strip() or "Screen capture failed"
-            return {"ok": False, "error": err}
-
-        play_shutter_sound(sound_enabled)
-        return {"ok": True, "filename": filename, "path": full_path}
     except Exception as exc:
-        return {"ok": False, "error": str(exc)}
+        err = str(exc)
+
+    if not captured:
+        captured = _capture_with_quartz(
+            full_path,
+            region={"x": x, "y": y, "width": w, "height": h},
+        )
+
+    if not captured:
+        if os.path.isfile(full_path) and os.path.getsize(full_path) == 0:
+            try:
+                os.remove(full_path)
+            except OSError:
+                pass
+        return {"ok": False, "error": err or "Screen capture failed"}
+
+    play_shutter_sound(sound_enabled)
+    return {"ok": True, "filename": filename, "path": full_path}
 
 
 class CaptureController:
@@ -451,6 +547,21 @@ class CaptureController:
                 self._phase = "stopped"
             return self._snapshot_locked()
 
+    def reset(self) -> dict[str, Any]:
+        """Stop any active capture loop and reset controller session state to idle."""
+        self.stop()
+        with self._lock:
+            self._phase = "idle"
+            self._countdown_remaining = 0
+            self._captured_count = 0
+            self._max_shots = 0
+            self._interval_sec = 3
+            self._save_folder = ""
+            self._last_file = None
+            self._captured_files = []
+            self._last_error = None
+            return self._snapshot_locked()
+
     def _run_loop(
         self,
         stop_event: threading.Event,
@@ -464,6 +575,8 @@ class CaptureController:
         on_shot_callback: Callable[[str, str], None] | None,
     ) -> None:
         try:
+            initial_target_pid = find_target_pid_for_region(region)
+
             for remaining in range(countdown_sec, 0, -1):
                 with self._lock:
                     if stop_event.is_set():
@@ -485,7 +598,7 @@ class CaptureController:
                 self._countdown_remaining = 0
                 self._phase = "capturing"
 
-            target_pid = find_target_pid_for_region(region)
+            target_pid = find_target_pid_for_region(region) or initial_target_pid
             if target_pid:
                 activate_target_app(target_pid)
 
@@ -525,9 +638,10 @@ class CaptureController:
                     break
 
                 if page_turn_cfg.get("enabled", True):
-                    if target_pid:
-                        activate_target_app(target_pid)
-                    turned = trigger_page_turn(page_turn_cfg)
+                    loop_target = find_target_pid_for_region(region) or target_pid
+                    if loop_target:
+                        target_pid = loop_target
+                    turned = trigger_page_turn(page_turn_cfg, target_pid=target_pid)
                     if not turned:
                         with self._lock:
                             if not self._last_error:

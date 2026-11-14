@@ -227,3 +227,15 @@ def save_config(new_data: dict) -> dict:
                     pass
 
         return copy.deepcopy(normalized)
+
+
+def reset_config() -> dict:
+    """Delete the persisted configuration file and return a fresh default config."""
+    with _CONFIG_LOCK:
+        config_path = get_config_path()
+        try:
+            if os.path.exists(config_path):
+                os.remove(config_path)
+        except OSError:
+            pass
+        return copy.deepcopy(DEFAULT_CONFIG)
