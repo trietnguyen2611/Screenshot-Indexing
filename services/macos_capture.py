@@ -12,7 +12,11 @@ import threading
 import time
 from typing import Any, Callable
 
-from services.macos_input import trigger_page_turn
+from services.macos_input import (
+    activate_target_app,
+    find_target_pid_for_region,
+    trigger_page_turn,
+)
 from services.macos_sound import play_shutter_sound
 
 
@@ -481,6 +485,10 @@ class CaptureController:
                 self._countdown_remaining = 0
                 self._phase = "capturing"
 
+            target_pid = find_target_pid_for_region(region)
+            if target_pid:
+                activate_target_app(target_pid)
+
             while not stop_event.is_set():
                 shot = capture_region_once(
                     save_folder, region, sound_enabled=sound_enabled
@@ -516,7 +524,18 @@ class CaptureController:
                 if stop_event.is_set():
                     break
 
-                trigger_page_turn(page_turn_cfg)
+                if page_turn_cfg.get("enabled", True):
+                    if target_pid:
+                        activate_target_app(target_pid)
+                    turned = trigger_page_turn(page_turn_cfg)
+                    if not turned:
+                        with self._lock:
+                            if not self._last_error:
+                                self._last_error = (
+                                    "Auto page-turn blocked: grant Accessibility "
+                                    "permission in System Settings"
+                                )
+
                 if stop_event.wait(timeout=float(interval_sec)):
                     break
 

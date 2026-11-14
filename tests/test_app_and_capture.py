@@ -86,7 +86,15 @@ class TestExistingEndpointsAndRename(BaseIsolatedTestCase):
         html = resp.get_data(as_text=True)
         self.assertIn("Screenshot Indexing", html)
         self.assertIn('id="tab-btn-capture"', html)
+        self.assertIn('id="header-lang-select"', html)
+        self.assertIn('id="header-theme-toggle-btn"', html)
+        self.assertIn('id="key-recorder-input"', html)
         self.assertIn('id="capture-canvas"', html)
+        self.assertNotIn('id="lang-select"', html)
+        self.assertNotIn('id="theme-toggle-btn"', html)
+        self.assertNotIn('id="page-turn-key-preset"', html)
+        self.assertNotIn('id="btn-pt-mode-click"', html)
+        self.assertNotIn('id="live-capture-view"', html)
 
         ver_resp = self.client.get("/api/version")
         self.assertEqual(ver_resp.status_code, 200)
@@ -276,6 +284,10 @@ class TestMacOSInput(unittest.TestCase):
         self.assertEqual(macos_input.resolve_key_code("Enter"), 36)
         self.assertEqual(macos_input.resolve_key_code("a"), 0)
         self.assertEqual(macos_input.resolve_key_code("KeyA"), 0)
+        self.assertEqual(macos_input.resolve_key_code("."), 47)
+        self.assertEqual(macos_input.resolve_key_code("Period"), 47)
+        self.assertEqual(macos_input.resolve_key_code("F1"), 122)
+        self.assertEqual(macos_input.resolve_key_code("F12"), 111)
         self.assertEqual(macos_input.resolve_key_code("UnknownKey", 88), 88)
         self.assertEqual(macos_input.resolve_key_code("UnknownKey", None), 124)
 
@@ -338,6 +350,60 @@ class TestMacOSInput(unittest.TestCase):
             cmd = run_mock.call_args[0][0]
             self.assertEqual(cmd[0], "osascript")
             self.assertIn("121", cmd[2])
+
+    def test_untrusted_quartz_falls_back_to_osascript_and_target_pid_activation(self) -> None:
+        fake_quartz = types.SimpleNamespace(
+            kCGHIDEventTap=0,
+            kCGWindowListOptionOnScreenOnly=1,
+            kCGWindowListExcludeDesktopElements=16,
+            kCGNullWindowID=0,
+            CGWindowListCopyWindowInfo=mock.MagicMock(
+                return_value=[
+                    {
+                        "kCGWindowLayer": 0,
+                        "kCGWindowOwnerPID": os.getpid(),
+                        "kCGWindowOwnerName": "Python",
+                        "kCGWindowBounds": {"X": 0, "Y": 0, "Width": 1200, "Height": 800},
+                    },
+                    {
+                        "kCGWindowLayer": 0,
+                        "kCGWindowOwnerPID": 43210,
+                        "kCGWindowOwnerName": "Safari",
+                        "kCGWindowBounds": {"X": 100, "Y": 100, "Width": 900, "Height": 700},
+                    },
+                ]
+            ),
+            CGEventCreateKeyboardEvent=mock.MagicMock(return_value=object()),
+            CGEventPost=mock.MagicMock(),
+        )
+        running_app_mock = mock.MagicMock()
+        running_app_mock.activateWithOptions_.return_value = True
+        front_app_mock = mock.MagicMock()
+        front_app_mock.processIdentifier.return_value = os.getpid()
+        ws_mock = mock.MagicMock()
+        ws_mock.frontmostApplication.return_value = front_app_mock
+        fake_appkit = types.SimpleNamespace(
+            NSWorkspace=types.SimpleNamespace(sharedWorkspace=mock.MagicMock(return_value=ws_mock)),
+            NSRunningApplication=types.SimpleNamespace(
+                runningApplicationWithProcessIdentifier_=mock.MagicMock(return_value=running_app_mock)
+            ),
+        )
+        completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        with mock.patch.object(macos_input.sys, "platform", "darwin"), mock.patch.dict(
+            sys.modules, {"Quartz": fake_quartz, "AppKit": fake_appkit}
+        ), mock.patch.object(
+            macos_input, "_is_accessibility_trusted", return_value=False
+        ), mock.patch.object(
+            macos_input.time, "sleep"
+        ), mock.patch.object(
+            macos_input.subprocess, "run", return_value=completed
+        ) as run_mock:
+            pid = macos_input.find_target_pid_for_region({"x": 200, "y": 200, "width": 400, "height": 400})
+            self.assertEqual(pid, 43210)
+            self.assertTrue(macos_input.send_keyboard_shortcut(125, target_pid=pid))
+            running_app_mock.activateWithOptions_.assert_called_once_with(2)
+            run_mock.assert_called_once()
+            self.assertIn("125", run_mock.call_args[0][0][2])
 
 
 class TestMacOSCaptureAndSound(BaseIsolatedTestCase):
@@ -421,6 +487,8 @@ class TestMacOSCaptureAndSound(BaseIsolatedTestCase):
         ), mock.patch.object(
             macos_capture, "play_shutter_sound", return_value=True
         ) as sound_mock, mock.patch.object(
+            macos_capture, "find_target_pid_for_region", return_value=None
+        ), mock.patch.object(
             macos_capture, "trigger_page_turn", return_value=True
         ) as turn_mock:
             # Speed up threading.Event.wait only for 1s interval sleeps? Better: pass interval=1,
@@ -459,6 +527,46 @@ class TestMacOSCaptureAndSound(BaseIsolatedTestCase):
             # Crucial invariant: 2 shots => page turn called ONLY once (not after final shot)
             self.assertEqual(turn_mock.call_count, 1)
 
+    def test_capture_controller_reports_blocked_page_turn_error(self) -> None:
+        shots_dir = self.tmp_path / "blocked_turn_shots"
+        controller = macos_capture.CaptureController()
+
+        def fake_screencapture(cmd, capture_output=True, text=True, timeout=15):
+            pathlib.Path(cmd[-1]).write_bytes(_make_minimal_png(400, 300))
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        with mock.patch.object(macos_capture.sys, "platform", "darwin"), mock.patch.object(
+            macos_capture.subprocess, "run", side_effect=fake_screencapture
+        ), mock.patch.object(
+            macos_capture, "play_shutter_sound", return_value=True
+        ), mock.patch.object(
+            macos_capture, "find_target_pid_for_region", return_value=None
+        ), mock.patch.object(
+            macos_capture, "trigger_page_turn", return_value=False
+        ):
+            res = controller.start(
+                {
+                    "save_folder": str(shots_dir),
+                    "region": {"x": 0, "y": 0, "width": 400, "height": 300},
+                    "interval_sec": 1,
+                    "countdown_sec": 0,
+                    "max_shots": 2,
+                    "sound_enabled": False,
+                    "page_turn": {"enabled": True, "mode": "keyboard", "key_name": "ArrowDown"},
+                }
+            )
+            self.assertTrue(res["ok"])
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline:
+                st = controller.get_status()
+                if not st["running"]:
+                    break
+                time.sleep(0.05)
+
+            final_status = controller.get_status()
+            self.assertEqual(final_status["phase"], "completed")
+            self.assertIn("Accessibility", final_status["last_error"] or "")
+
     def test_capture_controller_immediate_stop_abort(self) -> None:
         shots_dir = self.tmp_path / "abort_shots"
         controller = macos_capture.CaptureController()
@@ -473,6 +581,8 @@ class TestMacOSCaptureAndSound(BaseIsolatedTestCase):
             macos_capture.subprocess, "run", side_effect=fake_screencapture
         ), mock.patch.object(
             macos_capture, "play_shutter_sound", return_value=True
+        ), mock.patch.object(
+            macos_capture, "find_target_pid_for_region", return_value=None
         ), mock.patch.object(
             macos_capture, "trigger_page_turn", return_value=True
         ):

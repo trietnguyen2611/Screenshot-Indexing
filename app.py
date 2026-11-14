@@ -54,6 +54,7 @@ def get_msg(key, lang):
         "overlay_cancelled": {"vi": "Đã hủy chọn trên màn hình", "en": "Screen selection cancelled"},
         "overlay_failed": {"vi": "Không thể mở lớp phủ chọn trên màn hình", "en": "Failed to launch screen overlay picker"},
         "permission_denied_capture": {"vi": "Thiếu quyền Ghi màn hình (Screen Recording) trên macOS", "en": "Screen Recording permission is required on macOS"},
+        "accessibility_warning": {"vi": "Vui lòng cấp quyền Trợ năng (Accessibility) trong Cài đặt hệ thống để tự động lật trang hoạt động", "en": "Please grant Accessibility permission in System Settings for Auto Page-Turn to work"},
         "file_not_found": {"vi": "Không tìm thấy tệp ảnh", "en": "Image file not found"},
     }
     entry = msgs.get(key, {})
@@ -476,6 +477,10 @@ def capture_start():
         if folder_path:
             state["folder_path"] = folder_path
 
+    perms = None
+    if not app.config.get("TESTING") and saved.get("page_turn", {}).get("enabled", True):
+        perms = check_permissions(prompt=True)
+
     res = capture_controller.start(saved, on_shot_callback=_on_shot)
     if not res or not res.get("ok"):
         err = res.get("error") if isinstance(res, dict) else ""
@@ -493,12 +498,17 @@ def capture_start():
             "message": msg,
         })
 
-    return jsonify({
+    resp_payload = {
         "ok": True,
         "status": res["status"],
         "settings": saved,
         "message": get_msg("capture_started", lang),
-    })
+    }
+    if perms is not None:
+        resp_payload["permissions"] = perms
+        if not perms.get("accessibility"):
+            resp_payload["accessibility_warning"] = get_msg("accessibility_warning", lang)
+    return jsonify(resp_payload)
 
 
 @app.route("/api/capture/stop", methods=["POST"])

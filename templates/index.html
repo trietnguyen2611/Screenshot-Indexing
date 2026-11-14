@@ -186,51 +186,8 @@
                         <div class="card notes-card">
                             <textarea id="notes-input" class="notes-input" placeholder="Enter notes here..."
                                 data-i18n-placeholder="notes_placeholder" oninput="saveNotes()"></textarea>
-
-                            <button type="button" id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleTheme()"
-                                title="Toggle Light / Dark theme" data-i18n-title="theme_toggle">
-                                <svg class="theme-icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="5" />
-                                    <line x1="12" y1="1" x2="12" y2="3" />
-                                    <line x1="12" y1="21" x2="12" y2="23" />
-                                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                                    <line x1="1" y1="12" x2="3" y2="12" />
-                                    <line x1="21" y1="12" x2="23" y2="12" />
-                                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                                </svg>
-                                <svg class="theme-icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                                </svg>
-                            </button>
                         </div>
                     </section>
-
-                    <!-- Section: Preferences (Language Select) -->
-                    <div class="sidebar-prefs">
-                        <div class="lang-select-container">
-                            <svg class="lang-select-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <line x1="2" y1="12" x2="22" y2="12"></line>
-                                <path
-                                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
-                                </path>
-                            </svg>
-                            <select id="lang-select" class="lang-select" onchange="setLanguage(this.value)"
-                                aria-label="Select Language">
-                                <option value="en">English</option>
-                                <option value="vi">Tiếng Việt</option>
-                            </select>
-                            <svg class="lang-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="6 9 12 15 18 9"></polyline>
-                            </svg>
-                        </div>
-                    </div>
 
                 </div>
 
@@ -469,19 +426,7 @@
                             </div>
 
                             <div id="page-turn-config-body" class="page-turn-config-body">
-                                <div class="segmented-control">
-                                    <button type="button" id="btn-pt-mode-keyboard" class="segmented-btn active"
-                                        onclick="setPageTurnMode('keyboard')">
-                                        <span data-i18n="pt_mode_keyboard">Key Shortcut</span>
-                                    </button>
-                                    <button type="button" id="btn-pt-mode-click" class="segmented-btn"
-                                        onclick="setPageTurnMode('click')">
-                                        <span data-i18n="pt_mode_click">Click Point</span>
-                                    </button>
-                                </div>
-
-                                <!-- Keyboard Panel -->
-                                <div id="pt-panel-keyboard" class="pt-mode-panel">
+                                <div class="pt-mode-panel">
                                     <label class="capture-sub-label" for="key-recorder-input">
                                         <span data-i18n="pt_key_recorder_label">Sample Key (click & press any key)</span>
                                     </label>
@@ -489,53 +434,6 @@
                                         value="→ ArrowRight" placeholder="Click & press key..."
                                         data-i18n-placeholder="pt_key_recorder_placeholder"
                                         title="Click here and press any key" data-i18n-title="pt_key_recorder_title">
-
-                                    <label class="capture-sub-label" for="page-turn-key-preset">
-                                        <span data-i18n="pt_key_preset_label">Quick Preset</span>
-                                    </label>
-                                    <div class="lang-select-container compact-select-container">
-                                        <select id="page-turn-key-preset" class="lang-select compact-select"
-                                            onchange="onKeyPresetChange(this.value)">
-                                            <option value="ArrowRight">→ ArrowRight</option>
-                                            <option value="Space">␣ Space</option>
-                                            <option value="PageDown">⇟ PageDown</option>
-                                            <option value="ArrowDown">↓ ArrowDown</option>
-                                            <option value="ArrowLeft">← ArrowLeft</option>
-                                            <option value="ArrowUp">↑ ArrowUp</option>
-                                            <option value="Enter">↵ Enter</option>
-                                            <option value="" data-i18n="pt_key_custom_option">Custom key</option>
-                                        </select>
-                                        <svg class="lang-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <polyline points="6 9 12 15 18 9"></polyline>
-                                        </svg>
-                                    </div>
-                                </div>
-
-                                <!-- Click Panel -->
-                                <div id="pt-panel-click" class="pt-mode-panel" style="display: none;">
-                                    <div class="region-grid click-coord-grid">
-                                        <label class="coord-field">
-                                            <span class="coord-label">X</span>
-                                            <input id="click-x" type="number" class="range-input coord-input" value="500"
-                                                oninput="onClickPointInputLive()" onchange="onClickPointInputCommit()">
-                                        </label>
-                                        <label class="coord-field">
-                                            <span class="coord-label">Y</span>
-                                            <input id="click-y" type="number" class="range-input coord-input" value="500"
-                                                oninput="onClickPointInputLive()" onchange="onClickPointInputCommit()">
-                                        </label>
-                                    </div>
-                                    <div class="capture-btn-row">
-                                        <button type="button" id="btn-canvas-mode-click" class="btn btn-secondary"
-                                            onclick="activateCanvasClickTool()">
-                                            <span data-i18n="btn_set_click_canvas">Pick on Canvas</span>
-                                        </button>
-                                        <button type="button" id="btn-pick-click-overlay" class="btn btn-secondary"
-                                            onclick="pickOverlay('click')">
-                                            <span data-i18n="btn_pick_click_overlay">Screen Overlay</span>
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -607,50 +505,17 @@
                     <div class="resizer-line"></div>
                 </div>
 
-                <!-- Right Panel: Interactive Canvas & Live View -->
+                <!-- Right Panel: Interactive Region Canvas -->
                 <div class="content-panel capture-content-panel" id="capture-content-panel">
 
                     <!-- Toolbar -->
                     <div class="capture-toolbar">
                         <div class="capture-toolbar-group">
-                            <div class="segmented-control segmented-control-inline">
-                                <button type="button" id="btn-canvas-tool-region" class="segmented-btn active"
-                                    onclick="setCanvasTool('region')">
-                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                        stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M6 2v14a2 2 0 0 0 2 2h14" />
-                                        <path d="M18 22V8a2 2 0 0 0-2-2H2" />
-                                    </svg>
-                                    <span data-i18n="tool_select_region">Select Region</span>
-                                </button>
-                                <button type="button" id="btn-canvas-tool-click" class="segmented-btn"
-                                    onclick="setCanvasTool('click')">
-                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                        stroke-linecap="round" stroke-linejoin="round">
-                                        <circle cx="12" cy="12" r="10" />
-                                        <circle cx="12" cy="12" r="2" />
-                                        <line x1="12" y1="2" x2="12" y2="6" />
-                                        <line x1="12" y1="18" x2="12" y2="22" />
-                                        <line x1="2" y1="12" x2="6" y2="12" />
-                                        <line x1="18" y1="12" x2="22" y2="12" />
-                                    </svg>
-                                    <span data-i18n="tool_set_click">Set Click Point</span>
-                                </button>
-                            </div>
+                            <span class="section-title" data-i18n="view_canvas">Screen Preview</span>
                         </div>
 
                         <div class="capture-toolbar-group capture-toolbar-right">
                             <span id="canvas-scale-badge" class="image-counter-badge canvas-scale-badge">—</span>
-                            <div class="segmented-control segmented-control-inline">
-                                <button type="button" id="btn-view-mode-canvas" class="segmented-btn active"
-                                    onclick="setCaptureViewMode('canvas')">
-                                    <span data-i18n="view_canvas">Interactive Canvas</span>
-                                </button>
-                                <button type="button" id="btn-view-mode-live" class="segmented-btn"
-                                    onclick="setCaptureViewMode('live')">
-                                    <span data-i18n="view_live_shot">Latest Shot</span>
-                                </button>
-                            </div>
                         </div>
                     </div>
 
@@ -666,7 +531,7 @@
                                     <line x1="12" y1="17" x2="12" y2="21" />
                                 </svg>
                                 <div class="empty-state-title"><span data-i18n="canvas_empty_title">No screen preview yet</span></div>
-                                <div class="empty-state-text"><span data-i18n="canvas_empty_desc">Take a test shot to preview your screen and draw the region or click target</span></div>
+                                <div class="empty-state-text"><span data-i18n="canvas_empty_desc">Take a test shot to preview your screen and draw the capture region</span></div>
                                 <div class="canvas-empty-actions">
                                     <button type="button" class="btn btn-primary" onclick="capturePreviewScreen(0.2)">
                                         <span data-i18n="btn_test_shot_now">Test Shot Now</span>
@@ -679,29 +544,8 @@
                         </div>
                         <div class="capture-canvas-footer">
                             <span id="canvas-coord-summary" class="canvas-coord-summary">—</span>
-                            <span class="canvas-hint-text" data-i18n="canvas_drag_hint">Drag to set region or click to place page-turn target</span>
+                            <span class="canvas-hint-text" data-i18n="canvas_drag_hint">Drag on the preview to set capture region</span>
                         </div>
-                    </div>
-
-                    <!-- Live Capture View -->
-                    <div id="live-capture-view" class="capture-stage-card" style="display: none;">
-                        <div class="live-capture-header">
-                            <span class="live-capture-title" data-i18n="live_latest_label">Latest Captured Shot</span>
-                            <span id="live-latest-filename" class="live-filename-pill">—</span>
-                        </div>
-                        <div class="live-capture-stage">
-                            <img id="live-latest-img" src="" alt="Latest Captured Shot" style="display: none;" />
-                            <div id="live-empty-hint" class="empty-state">
-                                <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                    stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                                    <circle cx="12" cy="13" r="4" />
-                                </svg>
-                                <div class="empty-state-title"><span data-i18n="live_empty_title">Waiting for captured shots</span></div>
-                                <div class="empty-state-text"><span data-i18n="live_empty_desc">Start auto-capture to preview each screenshot live as it is saved</span></div>
-                            </div>
-                        </div>
-                        <div id="live-recent-list" class="live-recent-list"></div>
                     </div>
 
                 </div>
