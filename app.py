@@ -25,7 +25,7 @@ from services.macos_input import resolve_key_code
 from services.macos_overlay import pick_screen_overlay
 from services.macos_permissions import check_permissions
 
-VERSION = os.environ.get("APP_VERSION", "1.0.3").lstrip("v")
+VERSION = os.environ.get("APP_VERSION", "1.1").lstrip("v")
 
 if getattr(sys, 'frozen', False):
     if sys.platform == 'darwin':
