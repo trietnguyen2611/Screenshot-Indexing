@@ -16,6 +16,13 @@ if "--overlay-picker" in sys.argv:
 from flask import Flask, render_template, jsonify, request, send_from_directory
 
 from services.config_store import load_config, reset_config, save_config
+from services.gemini_assistant import (
+    GeminiAssistantError,
+    mask_api_key,
+    resolve_api_key,
+    suggest_filenames,
+    summarize_screenshots,
+)
 from services.macos_capture import (
     capture_controller,
     capture_fullscreen_preview,
@@ -61,6 +68,12 @@ def get_msg(key, lang):
         "permission_denied_capture": {"vi": "Thiếu quyền Ghi màn hình (Screen Recording) trên macOS", "en": "Screen Recording permission is required on macOS"},
         "accessibility_warning": {"vi": "Vui lòng cấp quyền Trợ năng (Accessibility) trong Cài đặt hệ thống để tự động lật trang hoạt động", "en": "Please grant Accessibility permission in System Settings for Auto Page-Turn to work"},
         "file_not_found": {"vi": "Không tìm thấy tệp ảnh", "en": "Image file not found"},
+        "ai_key_missing": {"vi": "Chưa cấu hình Gemini API key. Vui lòng nhập key trong Cài đặt AI hoặc biến môi trường GEMINI_API_KEY.", "en": "Gemini API key is not configured. Please add it in AI Settings or set GEMINI_API_KEY."},
+        "ai_suggest_success": {"vi": "Đã gợi ý tên thông minh cho {count} ảnh bằng Gemini", "en": "Suggested smart names for {count} screenshots with Gemini"},
+        "ai_summarize_success": {"vi": "Đã tóm tắt nội dung từ {count} ảnh vào Ghi chú", "en": "Summarized content from {count} screenshots into Notes"},
+        "ai_failed": {"vi": "Yêu cầu Gemini AI thất bại", "en": "Gemini AI request failed"},
+        "ai_invalid_pairs": {"vi": "Danh sách tên tệp đổi tên không hợp lệ", "en": "Invalid rename file list"},
+        "ai_payload_too_large": {"vi": "Kích thước ảnh vượt quá giới hạn gửi trực tiếp của Gemini", "en": "Screenshot size exceeds Gemini inline payload limit"},
     }
     entry = msgs.get(key, {})
     return entry.get(lang, entry.get("en"))
@@ -257,7 +270,22 @@ def _extract_settings_updates(data: dict) -> dict:
             pt["key_code"] = resolve_key_code("", pt.get("key_code"))
         payload["page_turn"] = pt
 
+    if "gemini_api_key" in data:
+        raw_key = data.get("gemini_api_key")
+        payload["gemini_api_key"] = raw_key.strip() if isinstance(raw_key, str) else ""
+
     return payload
+
+
+def _sanitize_settings_for_client(cfg: dict) -> dict:
+    """Return settings dict with secret API key replaced by masked status metadata."""
+    out = dict(cfg)
+    raw_cfg_key = out.pop("gemini_api_key", "")
+    effective_key, source = resolve_api_key(raw_cfg_key)
+    out["has_gemini_api_key"] = bool(effective_key)
+    out["gemini_api_key_source"] = source
+    out["gemini_api_key_hint"] = mask_api_key(effective_key)
+    return out
 
 
 @app.route("/api/settings", methods=["GET"])
@@ -265,7 +293,7 @@ def get_settings():
     """Return persisted auto-capture settings and current TCC permissions."""
     return jsonify({
         "ok": True,
-        "settings": load_config(),
+        "settings": _sanitize_settings_for_client(load_config()),
         "permissions": check_permissions(prompt=False),
     })
 
@@ -300,7 +328,7 @@ def update_settings():
 
     return jsonify({
         "ok": True,
-        "settings": saved,
+        "settings": _sanitize_settings_for_client(saved),
         "message": get_msg("settings_saved", lang),
     })
 
@@ -566,6 +594,182 @@ def get_capture_latest_image():
         return get_msg("file_not_found", lang), 404
 
     return send_from_directory(folder, filename, max_age=0)
+
+
+def _is_safe_png_filename(name: str) -> bool:
+    """Validate that a target filename is a safe single-segment .png basename."""
+    if not isinstance(name, str) or not name:
+        return False
+    if "/" in name or "\\" in name or ".." in name:
+        return False
+    if os.path.basename(name) != name:
+        return False
+    return name.lower().endswith(".png") and len(name) > 4
+
+
+@app.route("/api/ai/suggest-names", methods=["POST"])
+def ai_suggest_names():
+    """Use Gemini multimodal vision to suggest descriptive filenames for scanned screenshots."""
+    data = request.get_json(silent=True) or {}
+    lang = data.get("lang", "en")
+    folder = state.get("folder_path", "")
+    files = list(state.get("files") or [])
+
+    if not files:
+        return jsonify({"ok": False, "message": get_msg("no_files", lang)})
+    if not folder or not os.path.isdir(folder):
+        return jsonify({"ok": False, "message": get_msg("folder_not_exist", lang)})
+
+    try:
+        start_num = int(data.get("start", 1))
+    except (TypeError, ValueError):
+        start_num = 1
+    if start_num < 0:
+        start_num = 1
+
+    cfg = load_config()
+    api_key, _ = resolve_api_key(cfg.get("gemini_api_key", ""))
+    if not api_key:
+        return jsonify({"ok": False, "code": "missing_api_key", "message": get_msg("ai_key_missing", lang)})
+
+    try:
+        suggestions = suggest_filenames(
+            folder=folder,
+            filenames=files,
+            start_num=start_num,
+            lang=lang,
+            api_key=api_key,
+        )
+    except GeminiAssistantError as exc:
+        if exc.code == "missing_api_key":
+            return jsonify({"ok": False, "code": exc.code, "message": get_msg("ai_key_missing", lang)})
+        if exc.code == "payload_too_large":
+            return jsonify({"ok": False, "code": exc.code, "message": get_msg("ai_payload_too_large", lang)})
+        return jsonify({"ok": False, "code": exc.code, "message": f"{get_msg('ai_failed', lang)}: {exc.message}"})
+
+    return jsonify({
+        "ok": True,
+        "suggestions": suggestions,
+        "count": len(suggestions),
+        "message": get_msg("ai_suggest_success", lang).format(count=len(suggestions)),
+    })
+
+
+@app.route("/api/ai/rename-custom", methods=["POST"])
+def ai_rename_custom():
+    """Safely batch-rename files using custom/AI-suggested target names via two-step temp rename."""
+    data = request.get_json(silent=True) or {}
+    lang = data.get("lang", "en")
+    folder = state.get("folder_path", "")
+    files = list(state.get("files") or [])
+    raw_pairs = data.get("pairs")
+
+    if not files:
+        return jsonify({"ok": False, "message": get_msg("no_files", lang)})
+    if not folder or not os.path.isdir(folder):
+        return jsonify({"ok": False, "message": get_msg("folder_not_exist", lang)})
+    if not isinstance(raw_pairs, list) or not raw_pairs:
+        return jsonify({"ok": False, "message": get_msg("ai_invalid_pairs", lang)})
+
+    allowed_files = set(files)
+    rename_pairs: list[tuple[str, str]] = []
+    seen_old: set[str] = set()
+    seen_new: set[str] = set()
+
+    for item in raw_pairs:
+        if not isinstance(item, dict):
+            return jsonify({"ok": False, "message": get_msg("ai_invalid_pairs", lang)})
+        old_name = item.get("old_name", "")
+        new_name = item.get("new_name", "")
+        if (
+            old_name not in allowed_files
+            or old_name in seen_old
+            or not _is_safe_png_filename(new_name)
+            or new_name in seen_new
+        ):
+            return jsonify({"ok": False, "message": get_msg("ai_invalid_pairs", lang)})
+        seen_old.add(old_name)
+        seen_new.add(new_name)
+        rename_pairs.append((old_name, new_name))
+
+    # Step 1: Rename to temp names
+    temp_pairs: list[tuple[str, str]] = []
+    try:
+        for old_name, new_name in rename_pairs:
+            temp_name = f"__temp_rename_{new_name}"
+            os.rename(os.path.join(folder, old_name), os.path.join(folder, temp_name))
+            temp_pairs.append((temp_name, new_name))
+    except Exception as e:
+        return jsonify({"ok": False, "message": f"{get_msg('error_prefix', lang)}: {str(e)}"})
+
+    # Step 2: Rename from temp to final with collision guard
+    success_count = 0
+    for temp_name, new_name in temp_pairs:
+        temp_path = os.path.join(folder, temp_name)
+        new_path = os.path.join(folder, new_name)
+        if os.path.exists(new_path):
+            continue
+        os.rename(temp_path, new_path)
+        success_count += 1
+
+    state["files"] = []
+    count = len(rename_pairs)
+    return jsonify({
+        "ok": True,
+        "success": success_count,
+        "total": count,
+        "message": get_msg("rename_success", lang).format(success_count=success_count, count=count),
+    })
+
+
+@app.route("/api/ai/summarize", methods=["POST"])
+def ai_summarize():
+    """Summarize scanned screenshots into Markdown notes using Gemini."""
+    data = request.get_json(silent=True) or {}
+    lang = data.get("lang", "en")
+    folder = state.get("folder_path", "")
+    files = list(state.get("files") or [])
+
+    if not files:
+        return jsonify({"ok": False, "message": get_msg("no_files", lang)})
+    if not folder or not os.path.isdir(folder):
+        return jsonify({"ok": False, "message": get_msg("folder_not_exist", lang)})
+
+    requested_files = data.get("filenames")
+    if isinstance(requested_files, list) and requested_files:
+        allowed = set(files)
+        target_files = [f for f in requested_files if isinstance(f, str) and f in allowed]
+    else:
+        target_files = files
+
+    if not target_files:
+        return jsonify({"ok": False, "message": get_msg("no_files", lang)})
+
+    cfg = load_config()
+    api_key, _ = resolve_api_key(cfg.get("gemini_api_key", ""))
+    if not api_key:
+        return jsonify({"ok": False, "code": "missing_api_key", "message": get_msg("ai_key_missing", lang)})
+
+    try:
+        summary, count = summarize_screenshots(
+            folder=folder,
+            filenames=target_files,
+            lang=lang,
+            api_key=api_key,
+        )
+    except GeminiAssistantError as exc:
+        if exc.code == "missing_api_key":
+            return jsonify({"ok": False, "code": exc.code, "message": get_msg("ai_key_missing", lang)})
+        if exc.code == "payload_too_large":
+            return jsonify({"ok": False, "code": exc.code, "message": get_msg("ai_payload_too_large", lang)})
+        return jsonify({"ok": False, "code": exc.code, "message": f"{get_msg('ai_failed', lang)}: {exc.message}"})
+
+    return jsonify({
+        "ok": True,
+        "summary": summary,
+        "count": count,
+        "message": get_msg("ai_summarize_success", lang).format(count=count),
+    })
 
 
 def cleanup_session():
