@@ -1,4 +1,6 @@
 import Foundation
+import CoreGraphics
+import ImageIO
 import Vision
 import FoundationModels
 
@@ -16,14 +18,21 @@ struct ResponsePayload: Encodable {
     let error: String?
 }
 
-func emitJSON(_ payload: ResponsePayload) {
+struct StreamEvent: Encodable {
+    let type: String
+    let text: String?
+    let processed: Int?
+    let reason: String?
+    let error: String?
+}
+
+func emitJSON<T: Encodable>(_ payload: T) {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.withoutEscapingSlashes]
     if let data = try? encoder.encode(payload),
        let text = String(data: data, encoding: .utf8) {
         print(text)
-    } else {
-        print("{\"ok\":false,\"error\":\"Failed to encode JSON response\"}")
+        fflush(stdout)
     }
 }
 
@@ -46,14 +55,32 @@ func availabilityStatus() -> (available: Bool, reason: String) {
     }
 }
 
+func loadThumbnailCGImage(at url: URL, maxPixelSize: Int = 1600) -> CGImage? {
+    guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+        return nil
+    }
+    let options: [CFString: Any] = [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+    ]
+    return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
+}
+
 func extractText(from imagePath: String, lang: String) -> String {
     let url = URL(fileURLWithPath: imagePath)
     let request = VNRecognizeTextRequest()
     request.recognitionLevel = .accurate
-    request.usesLanguageCorrection = true
+    request.usesLanguageCorrection = false
     request.recognitionLanguages = lang == "vi" ? ["vi-VN", "en-US"] : ["en-US", "vi-VN"]
 
-    let handler = VNImageRequestHandler(url: url, options: [:])
+    let handler: VNImageRequestHandler
+    if let cgImg = loadThumbnailCGImage(at: url, maxPixelSize: 1600) {
+        handler = VNImageRequestHandler(cgImage: cgImg, options: [:])
+    } else {
+        handler = VNImageRequestHandler(url: url, options: [:])
+    }
+
     do {
         try handler.perform([request])
     } catch {
@@ -65,10 +92,34 @@ func extractText(from imagePath: String, lang: String) -> String {
     return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
+func extractAllConcurrently(paths: [String], lang: String) async -> [(index: Int, name: String, text: String)] {
+    let validPaths = paths.prefix(8).filter { FileManager.default.fileExists(atPath: $0) }
+    guard !validPaths.isEmpty else { return [] }
+
+    let perImageLimit = max(450, 5000 / validPaths.count)
+    return await withTaskGroup(of: (Int, String, String).self) { group in
+        for (idx, path) in validPaths.enumerated() {
+            group.addTask {
+                let raw = extractText(from: path, lang: lang)
+                let clipped = String(raw.prefix(perImageLimit))
+                let name = URL(fileURLWithPath: path).lastPathComponent
+                return (idx, name, clipped)
+            }
+        }
+        var results: [(Int, String, String)] = []
+        for await item in group {
+            results.append(item)
+        }
+        return results.sorted { $0.0 < $1.0 }
+    }
+}
+
 @main
 struct AFMHelperCLI {
     static func main() async {
         let args = CommandLine.arguments
+        let streamMode = args.contains("--stream")
+
         if args.contains("--check") {
             let status = availabilityStatus()
             emitJSON(ResponsePayload(
@@ -85,98 +136,82 @@ struct AFMHelperCLI {
         let inputData = FileHandle.standardInput.readDataToEndOfFile()
         guard !inputData.isEmpty,
               let req = try? JSONDecoder().decode(RequestPayload.self, from: inputData) else {
-            emitJSON(ResponsePayload(
-                ok: false,
-                available: nil,
-                reason: nil,
-                summary: nil,
-                processed: nil,
-                error: "Invalid JSON input"
-            ))
+            if streamMode {
+                emitJSON(StreamEvent(type: "error", text: nil, processed: nil, reason: "invalid_input", error: "Invalid JSON input"))
+            } else {
+                emitJSON(ResponsePayload(ok: false, available: nil, reason: nil, summary: nil, processed: nil, error: "Invalid JSON input"))
+            }
             return
         }
 
         let status = availabilityStatus()
         guard status.available else {
-            emitJSON(ResponsePayload(
-                ok: false,
-                available: false,
-                reason: status.reason,
-                summary: nil,
-                processed: 0,
-                error: "Apple Foundation Model unavailable: \(status.reason)"
-            ))
+            if streamMode {
+                emitJSON(StreamEvent(type: "error", text: nil, processed: 0, reason: status.reason, error: "Apple Foundation Model unavailable: \(status.reason)"))
+            } else {
+                emitJSON(ResponsePayload(ok: false, available: false, reason: status.reason, summary: nil, processed: 0, error: "Apple Foundation Model unavailable: \(status.reason)"))
+            }
             return
         }
 
-        var extractedSections: [String] = []
-        var processedCount = 0
-
-        for (idx, path) in req.images.prefix(12).enumerated() {
-            guard FileManager.default.fileExists(atPath: path) else { continue }
-            processedCount += 1
-            let text = extractText(from: path, lang: req.lang)
-            let name = URL(fileURLWithPath: path).lastPathComponent
-            if !text.isEmpty {
-                let clipped = String(text.prefix(1800))
-                extractedSections.append("[\(idx + 1)] \(name):\n\(clipped)")
-            } else {
-                extractedSections.append("[\(idx + 1)] \(name): (no readable text)")
-            }
-        }
+        let extracted = await extractAllConcurrently(paths: req.images, lang: req.lang)
+        let processedCount = extracted.count
 
         guard processedCount > 0 else {
-            emitJSON(ResponsePayload(
-                ok: false,
-                available: true,
-                reason: "available",
-                summary: nil,
-                processed: 0,
-                error: "No valid image files found"
-            ))
+            if streamMode {
+                emitJSON(StreamEvent(type: "error", text: nil, processed: 0, reason: "no_images", error: "No valid image files found"))
+            } else {
+                emitJSON(ResponsePayload(ok: false, available: true, reason: "available", summary: nil, processed: 0, error: "No valid image files found"))
+            }
             return
         }
 
-        let combinedOCR = extractedSections.joined(separator: "\n\n")
+        let combinedOCR = extracted.map { item in
+            let body = item.text.isEmpty ? "(no readable text)" : item.text
+            return "[\(item.index + 1)] \(item.name):\n\(body)"
+        }.joined(separator: "\n\n")
+
         let instructions: String
         let prompt: String
         if req.lang == "vi" {
-            instructions = "Bạn là trợ lý kỹ thuật tóm tắt ghi chú ngắn gọn, chính xác bằng tiếng Việt dưới dạng Markdown."
-            prompt = """
-            Dưới đây là nội dung OCR trích xuất từ các ảnh chụp màn hình theo thứ tự. Hãy tóm tắt thành ghi chú Markdown rõ ràng (tiêu đề ngắn theo từng ảnh/chủ đề và các gạch đầu dòng ý chính):
-
-            \(combinedOCR)
-            """
+            instructions = "Bạn là trợ lý kỹ thuật. Tóm tắt cực kỳ ngắn gọn bằng tiếng Việt dưới dạng Markdown."
+            prompt = "Tóm tắt các điểm chính từ nội dung OCR sau:\n\n\(combinedOCR)"
         } else {
-            instructions = "You are a technical assistant that writes concise, structured Markdown study and reference notes in English."
-            prompt = """
-            Below is OCR text extracted chronologically from screenshots. Summarize the key points into clean Markdown notes (short heading per screenshot/topic and concise bullet points):
-
-            \(combinedOCR)
-            """
+            instructions = "You are a technical assistant. Write ultra-concise Markdown bullet notes in English."
+            prompt = "Summarize key points from this OCR text:\n\n\(combinedOCR)"
         }
 
         do {
             let session = LanguageModelSession(instructions: instructions)
-            let response = try await session.respond(to: prompt)
-            let summary = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
-            emitJSON(ResponsePayload(
-                ok: true,
-                available: true,
-                reason: "available",
-                summary: summary,
-                processed: processedCount,
-                error: nil
-            ))
+            if streamMode {
+                var lastContent = ""
+                let stream = session.streamResponse(to: prompt)
+                for try await partial in stream {
+                    let current = partial.content
+                    if current.count > lastContent.count, current.hasPrefix(lastContent) {
+                        let delta = String(current.dropFirst(lastContent.count))
+                        if !delta.isEmpty {
+                            emitJSON(StreamEvent(type: "delta", text: delta, processed: nil, reason: nil, error: nil))
+                        }
+                        lastContent = current
+                    } else if current != lastContent {
+                        // Fallback if prefix changed
+                        emitJSON(StreamEvent(type: "replace", text: current, processed: nil, reason: nil, error: nil))
+                        lastContent = current
+                    }
+                }
+                emitJSON(StreamEvent(type: "done", text: nil, processed: processedCount, reason: nil, error: nil))
+            } else {
+                let response = try await session.respond(to: prompt)
+                let summary = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                emitJSON(ResponsePayload(ok: true, available: true, reason: "available", summary: summary, processed: processedCount, error: nil))
+            }
         } catch {
-            emitJSON(ResponsePayload(
-                ok: false,
-                available: true,
-                reason: "available",
-                summary: nil,
-                processed: processedCount,
-                error: error.localizedDescription
-            ))
+            if streamMode {
+                emitJSON(StreamEvent(type: "error", text: nil, processed: processedCount, reason: "afm_error", error: error.localizedDescription))
+            } else {
+                emitJSON(ResponsePayload(ok: false, available: true, reason: "available", summary: nil, processed: processedCount, error: error.localizedDescription))
+            }
         }
     }
 }

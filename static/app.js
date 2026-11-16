@@ -32,6 +32,11 @@ const API = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, lang: currentLang })
     }).then(r => r.json()),
+    openPermissionSettings: (permission) => fetch('/api/capture/open-permission-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permission, lang: currentLang })
+    }).then(r => r.json()),
     previewScreen: (delaySec = 0.2) => fetch('/api/capture/preview-screen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,6 +58,11 @@ const API = {
         body: JSON.stringify({ lang: currentLang })
     }).then(r => r.json()),
     getCaptureStatus: () => fetch('/api/capture/status').then(r => r.json()),
+    setOverlayHotkey: (shortcut) => fetch('/api/capture/hotkey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shortcut })
+    }).then(r => r.json()),
     getAfmStatus: () => fetch('/api/afm/status').then(r => r.json()),
     summarizeAFM: (filenames = null) => fetch('/api/afm/summarize', {
         method: 'POST',
@@ -180,11 +190,11 @@ const translations = {
         toast_key_recorded: "Page-turn key set to {key}",
         toast_region_updated: "Region updated: {w}×{h} at ({x}, {y})",
         tab_settings: "Settings",
-        afm_summarize: "AFM Summarize",
+        afm_summarize: "AI Summarize",
         afm_summarizing: "Summarizing...",
-        afm_summarize_title: "Summarize screenshots into notes using on-device Apple Foundation Model",
-        afm_summarize_one: "AFM Summarize Image",
-        afm_summarize_one_title: "Summarize this image into Notes using AFM",
+        afm_summarize_title: "Summarize screenshots into notes using on-device AI",
+        afm_summarize_one: "AI Summarize Image",
+        afm_summarize_one_title: "Summarize this image into Notes using AI",
         settings_afm_section: "On-Device AI Engine (Apple Silicon AFM)",
         settings_afm_status_title: "Apple Foundation Model Status",
         settings_afm_status_desc: "Runs locally via Vision OCR + FoundationModels.framework without cloud API keys.",
@@ -192,8 +202,8 @@ const translations = {
         afm_status_available: "Available (On-Device)",
         afm_status_unavailable: "Unavailable ({reason})",
         settings_features_section: "Feature Toggles",
-        feat_afm_title: "AFM Note Summarization",
-        feat_afm_desc: "Show on-device AFM Summarize actions in Notes and Image Preview.",
+        feat_afm_title: "AI Note Summarization",
+        feat_afm_desc: "Show on-device AI Summarize actions in Notes and Image Preview.",
         feat_notes_title: "Notes Panel",
         feat_notes_desc: "Display the Markdown/text Notes workspace in Screenshot Indexing.",
         feat_capture_title: "Auto Capture Tab",
@@ -206,7 +216,15 @@ const translations = {
         overlay_shortcut_placeholder: "Click & press shortcut...",
         overlay_shortcut_title: "Click here and press a key combination to trigger region picker",
         overlay_shortcut_listening: "Press shortcut...",
-        toast_overlay_shortcut_set: "Region picker shortcut set to {shortcut}"
+        toast_overlay_shortcut_set: "Region picker shortcut set to {shortcut}",
+        btn_open_settings: "Open",
+        toast_open_perm_settings: "Opening System Settings...",
+        ai_summary_title: "AI Summary",
+        btn_copy: "Copy",
+        toast_copied: "Copied to clipboard",
+        canvas_perm_required: "Screen Recording permission is required to display Screen Preview.",
+        btn_open_screen_perm: "Open Screen Recording Settings",
+        toast_screen_perm_required: "Grant Screen Recording permission in System Settings to show Screen Preview"
     },
     vi: {
         desc: "Đổi tên đồng loạt file screenshot theo thứ tự thời gian",
@@ -325,11 +343,11 @@ const translations = {
         toast_key_recorded: "Đã đặt phím lật trang: {key}",
         toast_region_updated: "Đã cập nhật vùng: {w}×{h} tại ({x}, {y})",
         tab_settings: "Cài đặt",
-        afm_summarize: "Tóm tắt AFM",
+        afm_summarize: "Tóm tắt AI",
         afm_summarizing: "Đang tóm tắt...",
-        afm_summarize_title: "Tóm tắt ảnh vào ghi chú bằng Apple Foundation Model trên máy",
-        afm_summarize_one: "Tóm tắt ảnh (AFM)",
-        afm_summarize_one_title: "Tóm tắt ảnh này vào Ghi chú bằng AFM",
+        afm_summarize_title: "Tóm tắt ảnh vào ghi chú bằng AI trên máy",
+        afm_summarize_one: "Tóm tắt ảnh (AI)",
+        afm_summarize_one_title: "Tóm tắt ảnh này vào Ghi chú bằng AI",
         settings_afm_section: "Bộ xử lý AI trên máy (Apple Silicon AFM)",
         settings_afm_status_title: "Trạng thái Apple Foundation Model",
         settings_afm_status_desc: "Chạy cục bộ qua Vision OCR + FoundationModels.framework, không cần API key hay cloud.",
@@ -337,8 +355,8 @@ const translations = {
         afm_status_available: "Sẵn sàng (Trên máy)",
         afm_status_unavailable: "Chưa sẵn sàng ({reason})",
         settings_features_section: "Bật / Tắt tính năng",
-        feat_afm_title: "Tóm tắt ghi chú (AFM)",
-        feat_afm_desc: "Hiện nút Tóm tắt AFM trong khung Ghi chú và cửa sổ xem trước ảnh.",
+        feat_afm_title: "Tóm tắt ghi chú (AI)",
+        feat_afm_desc: "Hiện nút Tóm tắt AI trong khung Ghi chú và cửa sổ xem trước ảnh.",
         feat_notes_title: "Khung Ghi chú (Notes)",
         feat_notes_desc: "Hiển thị khung ghi chú Markdown/văn bản ở tab Screenshot Indexing.",
         feat_capture_title: "Tab Chụp tự động",
@@ -351,7 +369,15 @@ const translations = {
         overlay_shortcut_placeholder: "Nhấn vào đây và bấm tổ hợp phím...",
         overlay_shortcut_title: "Nhấn vào đây và bấm tổ hợp phím để mở chọn vùng màn hình",
         overlay_shortcut_listening: "Hãy bấm tổ hợp phím...",
-        toast_overlay_shortcut_set: "Đã đặt phím tắt chọn vùng: {shortcut}"
+        toast_overlay_shortcut_set: "Đã đặt phím tắt chọn vùng: {shortcut}",
+        btn_open_settings: "Mở",
+        toast_open_perm_settings: "Đang mở Cài đặt hệ thống...",
+        ai_summary_title: "Tóm tắt AI",
+        btn_copy: "Sao chép",
+        toast_copied: "Đã sao chép",
+        canvas_perm_required: "Cần cấp quyền Ghi màn hình (Screen Recording) để hiển thị Screen Preview.",
+        btn_open_screen_perm: "Mở cài đặt Ghi màn hình",
+        toast_screen_perm_required: "Hãy cấp quyền Ghi màn hình trong Cài đặt hệ thống để xem Screen Preview"
     }
 };
 
@@ -1069,6 +1095,7 @@ function updateImageModalContent() {
 
 function navigateImage(step) {
     if (!currentFiles || currentFiles.length === 0) return;
+    closeImageSummaryPopover();
 
     let newIndex = currentImageIndex + step;
     if (newIndex < 0) newIndex = currentFiles.length - 1;
@@ -1079,6 +1106,7 @@ function navigateImage(step) {
 }
 
 function closeImageModal() {
+    closeImageSummaryPopover();
     const modal = $('#image-modal');
     closeModalWithAnimation(modal, () => {
         const img = $('#image-modal-img');
@@ -1401,9 +1429,13 @@ async function onPageTurnEnabledChange() {
 
 // ── TCC Permissions ─────────────────────────────────────────────────
 
+let screenRecordingGranted = null;
+
 function renderPermissionBadges(perms) {
     if (!perms) return;
     lastPermissions = perms;
+    screenRecordingGranted = typeof perms.screen_recording === 'boolean' ? perms.screen_recording : null;
+    updateCanvasPermissionGate();
 
     const applyBadge = (el, val) => {
         if (!el) return;
@@ -1422,6 +1454,21 @@ function renderPermissionBadges(perms) {
 
     applyBadge($('#perm-screen-badge'), perms.screen_recording);
     applyBadge($('#perm-access-badge'), perms.accessibility);
+}
+
+function updateCanvasPermissionGate() {
+    const notice = $('#canvas-permission-notice');
+    const testBtn = $('#btn-canvas-test-shot');
+    const canvas = $('#capture-canvas');
+    const emptyHint = $('#canvas-empty-hint');
+    const blocked = screenRecordingGranted === false;
+
+    if (notice) notice.style.display = blocked ? 'flex' : 'none';
+    if (testBtn) testBtn.style.display = blocked ? 'none' : '';
+    if (blocked) {
+        if (canvas) canvas.style.display = 'none';
+        if (emptyHint) emptyHint.style.display = 'flex';
+    }
 }
 
 async function requestCapturePermissions(prompt = true) {
@@ -1472,7 +1519,49 @@ async function pickOverlay(target = 'region') {
     }
 }
 
+function applyPreviewImageToCanvas(img, meta = null) {
+    const m = meta || {};
+    previewMeta = {
+        screen_width: Number(m.screen_width) || img.naturalWidth,
+        screen_height: Number(m.screen_height) || img.naturalHeight,
+        image_width: Number(m.image_width) || img.naturalWidth,
+        image_height: Number(m.image_height) || img.naturalHeight,
+        scale_factor: Number(m.scale_factor) || 1,
+        origin_x: Number(m.origin_x) || 0,
+        origin_y: Number(m.origin_y) || 0,
+    };
+    previewImageObj = img;
+
+    const scaleBadge = $('#canvas-scale-badge');
+    if (scaleBadge) {
+        const sf = Number.isInteger(previewMeta.scale_factor)
+            ? `${previewMeta.scale_factor}x`
+            : `${previewMeta.scale_factor.toFixed(1)}x`;
+        scaleBadge.textContent = `${previewMeta.screen_width}×${previewMeta.screen_height} pt • ${sf}`;
+    }
+
+    const emptyHint = $('#canvas-empty-hint');
+    const canvas = $('#capture-canvas');
+    if (emptyHint) emptyHint.style.display = 'none';
+    if (canvas) {
+        canvas.style.display = 'block';
+        canvas.width = previewMeta.image_width;
+        canvas.height = previewMeta.image_height;
+    }
+
+    requestAnimationFrame(() => {
+        fitCanvasToStage();
+        redrawCaptureCanvas();
+    });
+}
+
 async function capturePreviewScreen(delaySec = 0.2) {
+    if (screenRecordingGranted === false) {
+        updateCanvasPermissionGate();
+        showToast(t('toast_screen_perm_required'), 'warning', 4500);
+        return;
+    }
+
     const btnNow = $('#btn-capture-preview');
     const btnDelay = $('#btn-capture-preview-delay');
     if (btnNow) btnNow.disabled = true;
@@ -1492,38 +1581,7 @@ async function capturePreviewScreen(delaySec = 0.2) {
 
         const img = new Image();
         img.onload = () => {
-            previewMeta = {
-                screen_width: Number(res.screen_width) || img.naturalWidth,
-                screen_height: Number(res.screen_height) || img.naturalHeight,
-                image_width: Number(res.image_width) || img.naturalWidth,
-                image_height: Number(res.image_height) || img.naturalHeight,
-                scale_factor: Number(res.scale_factor) || 1,
-                origin_x: Number(res.origin_x) || 0,
-                origin_y: Number(res.origin_y) || 0,
-            };
-            previewImageObj = img;
-
-            const scaleBadge = $('#canvas-scale-badge');
-            if (scaleBadge) {
-                const sf = Number.isInteger(previewMeta.scale_factor)
-                    ? `${previewMeta.scale_factor}x`
-                    : `${previewMeta.scale_factor.toFixed(1)}x`;
-                scaleBadge.textContent = `${previewMeta.screen_width}×${previewMeta.screen_height} pt • ${sf}`;
-            }
-
-            const emptyHint = $('#canvas-empty-hint');
-            const canvas = $('#capture-canvas');
-            if (emptyHint) emptyHint.style.display = 'none';
-            if (canvas) {
-                canvas.style.display = 'block';
-                canvas.width = previewMeta.image_width;
-                canvas.height = previewMeta.image_height;
-            }
-
-            requestAnimationFrame(() => {
-                fitCanvasToStage();
-                redrawCaptureCanvas();
-            });
+            applyPreviewImageToCanvas(img, res);
             showToast(t('toast_preview_ready'), 'success');
         };
         img.onerror = () => {
@@ -1865,12 +1923,40 @@ function startStatusPolling() {
     }, 400);
 }
 
+let lastRegionRevision = 0;
+
 async function pollCaptureStatusOnce() {
     try {
         const res = await API.getCaptureStatus();
         if (!res.ok || !res.status) return;
         const prevRunning = lastCaptureStatus.running;
         renderCaptureStatus(res.status);
+
+        if (typeof res.region_revision === 'number' && res.region_revision > lastRegionRevision) {
+            lastRegionRevision = res.region_revision;
+            if (res.region) {
+                captureSettings.region = { ...captureSettings.region, ...res.region };
+                if ($('#reg-x')) $('#reg-x').value = captureSettings.region.x;
+                if ($('#reg-y')) $('#reg-y').value = captureSettings.region.y;
+                if ($('#reg-w')) $('#reg-w').value = captureSettings.region.width;
+                if ($('#reg-h')) $('#reg-h').value = captureSettings.region.height;
+                updateCanvasCoordSummary();
+            }
+            const img = new Image();
+            img.onload = () => {
+                if (screenRecordingGranted === false) {
+                    updateCanvasPermissionGate();
+                    return;
+                }
+                applyPreviewImageToCanvas(img, res.preview_meta || null);
+            };
+            if (screenRecordingGranted === false) {
+                updateCanvasPermissionGate();
+                showToast(t('toast_screen_perm_required'), 'warning', 4500);
+            } else {
+                img.src = `/api/capture/preview-image?t=${Date.now()}`;
+            }
+        }
 
         if (prevRunning && !res.status.running) {
             stopStatusPolling();
@@ -2025,6 +2111,25 @@ function applyFeatureToggles() {
     }
 }
 
+async function onCaptureSoundToggleChange(checked) {
+    const settingsSoundToggle = $('#toggle-feature-sound');
+    if (settingsSoundToggle) settingsSoundToggle.checked = Boolean(checked);
+    await saveCaptureSettingsFromUI();
+}
+
+async function openPermissionSettings(permission) {
+    try {
+        const res = await API.openPermissionSettings(permission);
+        if (res.ok) {
+            showToast(t('toast_open_perm_settings'), 'info', 2000);
+        } else {
+            showToast(escapeAttr(res.message || t('toast_permissions_error')), 'error');
+        }
+    } catch (err) {
+        showToast(t('toast_permissions_error'), 'error');
+    }
+}
+
 async function onFeatureToggleChange(key, checked) {
     if (key === 'sound_enabled') {
         const capSoundToggle = $('#capture-sound-toggle');
@@ -2074,27 +2179,112 @@ async function runAfmSummarize(filenames = null, btnSelector = '#btn-afm-summari
         btn.innerHTML = `<span class="spinner"></span> ${escapeAttr(t('afm_summarizing'))}`;
     }
 
+    const notesEl = $('#notes-input');
+    const notesCard = $('#notes-card');
+    const streamOverlay = $('#notes-stream-overlay');
+    const basePrefix = notesEl && notesEl.value.trim() ? `${notesEl.value.trim()}\n\n` : '';
+    let streamedText = '';
+
+    const appendWritingToolsTokens = (chunkText) => {
+        if (!streamOverlay || !chunkText) return;
+        const pieces = chunkText.split(/(\s+)/);
+        for (const piece of pieces) {
+            if (!piece) continue;
+            if (/^\s+$/.test(piece)) {
+                streamOverlay.appendChild(document.createTextNode(piece));
+            } else {
+                const span = document.createElement('span');
+                span.className = 'wt-token';
+                span.textContent = piece;
+                streamOverlay.appendChild(span);
+            }
+        }
+        streamOverlay.scrollTop = streamOverlay.scrollHeight;
+    };
+
     try {
-        const res = await API.summarizeAFM(filenames);
-        if (res.ok && res.summary) {
-            const notesEl = $('#notes-input');
-            if (notesEl) {
-                const existing = notesEl.value.trim();
-                notesEl.value = existing ? `${existing}\n\n${res.summary}` : res.summary;
-                saveNotes();
-            }
-            if (!featureToggles.notes_enabled) {
-                featureToggles.notes_enabled = true;
-                saveFeatureToggles();
-                applyFeatureToggles();
-            }
-            showToast(escapeAttr(res.message), 'success');
-        } else {
+        const response = await fetch('/api/afm/summarize-stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filenames, lang: currentLang })
+        });
+
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('text/event-stream')) {
+            const res = await response.json();
             showToast(escapeAttr(res.message || t('toast_afm_error')), 'error');
+            return;
+        }
+
+        if (!featureToggles.notes_enabled) {
+            featureToggles.notes_enabled = true;
+            saveFeatureToggles();
+            applyFeatureToggles();
+        }
+
+        if (notesCard) notesCard.classList.add('afm-generating');
+        if (streamOverlay) {
+            streamOverlay.textContent = '';
+            if (basePrefix) {
+                streamOverlay.appendChild(document.createTextNode(basePrefix));
+            }
+            streamOverlay.style.display = 'block';
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            const parts = buffer.split('\n\n');
+            buffer = parts.pop() || '';
+
+            for (const block of parts) {
+                const line = block.split('\n').find(l => l.startsWith('data: '));
+                if (!line) continue;
+                let evt;
+                try {
+                    evt = JSON.parse(line.slice(6));
+                } catch (e) {
+                    continue;
+                }
+                if (evt.type === 'delta' && evt.text) {
+                    streamedText += evt.text;
+                    appendWritingToolsTokens(evt.text);
+                    if (notesEl) {
+                        notesEl.value = basePrefix + streamedText;
+                        notesEl.scrollTop = notesEl.scrollHeight;
+                    }
+                } else if (evt.type === 'replace' && typeof evt.text === 'string') {
+                    streamedText = evt.text;
+                    if (streamOverlay) {
+                        streamOverlay.textContent = basePrefix + streamedText;
+                        streamOverlay.scrollTop = streamOverlay.scrollHeight;
+                    }
+                    if (notesEl) {
+                        notesEl.value = basePrefix + streamedText;
+                        notesEl.scrollTop = notesEl.scrollHeight;
+                    }
+                } else if (evt.type === 'done') {
+                    if (notesEl) saveNotes();
+                    if (evt.message) showToast(escapeAttr(evt.message), 'success');
+                } else if (evt.type === 'error') {
+                    showToast(escapeAttr(evt.message || t('toast_afm_error')), 'error');
+                }
+            }
         }
     } catch (err) {
         showToast(t('toast_afm_error'), 'error');
     } finally {
+        if (notesCard) notesCard.classList.remove('afm-generating');
+        if (streamOverlay) {
+            streamOverlay.style.display = 'none';
+            streamOverlay.textContent = '';
+        }
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = prevHTML || `<span data-i18n="${labelKey}">${escapeAttr(t(labelKey))}</span>`;
@@ -2106,18 +2296,145 @@ function summarizeWithAFM() {
     return runAfmSummarize(null, '#btn-afm-summarize', 'afm_summarize');
 }
 
-function summarizeCurrentImageWithAFM() {
+function onImageBodyClick(event) {
+    if (event && event.target && (event.target.closest('#image-summary-popover') || event.target.closest('.image-nav-btn'))) {
+        return;
+    }
+    closeImageSummaryPopover();
+}
+
+function closeImageSummaryPopover() {
+    const popover = $('#image-summary-popover');
+    if (popover) {
+        popover.style.display = 'none';
+        popover.classList.remove('afm-generating');
+    }
+}
+
+async function copyImageSummaryPopover() {
+    const body = $('#image-summary-body');
+    const text = body ? body.textContent.trim() : '';
+    if (!text) return;
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast(t('toast_copied'), 'success', 1800);
+    } catch (err) {
+        // Ignore clipboard errors
+    }
+}
+
+async function summarizeCurrentImageWithAFM() {
     if (currentImageIndex < 0 || currentImageIndex >= currentFiles.length) {
         showToast(t('toast_afm_no_files'), 'warning');
         return;
     }
     const targetName = currentFiles[currentImageIndex].name;
-    return runAfmSummarize([targetName], '#btn-afm-summarize-single', 'afm_summarize_one');
+    const btn = $('#btn-afm-summarize-single');
+    const prevHTML = btn ? btn.innerHTML : '';
+    const popover = $('#image-summary-popover');
+    const bodyEl = $('#image-summary-body');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner"></span> ${escapeAttr(t('afm_summarizing'))}`;
+    }
+    if (bodyEl) bodyEl.textContent = '';
+    if (popover) {
+        popover.style.display = 'flex';
+        popover.classList.add('afm-generating');
+    }
+
+    const appendPopoverTokens = (chunkText) => {
+        if (!bodyEl || !chunkText) return;
+        const pieces = chunkText.split(/(\s+)/);
+        for (const piece of pieces) {
+            if (!piece) continue;
+            if (/^\s+$/.test(piece)) {
+                bodyEl.appendChild(document.createTextNode(piece));
+            } else {
+                const span = document.createElement('span');
+                span.className = 'wt-token';
+                span.textContent = piece;
+                bodyEl.appendChild(span);
+            }
+        }
+        bodyEl.scrollTop = bodyEl.scrollHeight;
+    };
+
+    try {
+        const response = await fetch('/api/afm/summarize-stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filenames: [targetName], lang: currentLang })
+        });
+
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('text/event-stream')) {
+            const res = await response.json();
+            closeImageSummaryPopover();
+            showToast(escapeAttr(res.message || t('toast_afm_error')), 'error');
+            return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let streamedText = '';
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const parts = buffer.split('\n\n');
+            buffer = parts.pop() || '';
+
+            for (const block of parts) {
+                const line = block.split('\n').find(l => l.startsWith('data: '));
+                if (!line) continue;
+                let evt;
+                try {
+                    evt = JSON.parse(line.slice(6));
+                } catch (e) {
+                    continue;
+                }
+                if (evt.type === 'delta' && evt.text) {
+                    streamedText += evt.text;
+                    appendPopoverTokens(evt.text);
+                } else if (evt.type === 'replace' && typeof evt.text === 'string') {
+                    streamedText = evt.text;
+                    if (bodyEl) {
+                        bodyEl.textContent = streamedText;
+                        bodyEl.scrollTop = bodyEl.scrollHeight;
+                    }
+                } else if (evt.type === 'error') {
+                    showToast(escapeAttr(evt.message || t('toast_afm_error')), 'error');
+                }
+            }
+        }
+    } catch (err) {
+        closeImageSummaryPopover();
+        showToast(t('toast_afm_error'), 'error');
+    } finally {
+        if (popover) popover.classList.remove('afm-generating');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = prevHTML || `<span data-i18n="afm_summarize_one">${escapeAttr(t('afm_summarize_one'))}</span>`;
+        }
+    }
 }
 
 const OVERLAY_SHORTCUT_STORAGE_KEY = 'overlay_picker_shortcut';
 let overlayShortcut = { ctrl: true, shift: true, alt: false, meta: false, code: 'KeyR', key: 'R' };
 let isRecordingOverlayShortcut = false;
+let globalHotkeyListening = false;
+
+function syncOverlayHotkeyToBackend() {
+    API.setOverlayHotkey(overlayShortcut).then((res) => {
+        if (res && res.ok) {
+            globalHotkeyListening = Boolean(res.listening);
+        }
+    }).catch(() => {});
+}
 
 function formatOverlayShortcut(sc) {
     if (!sc || !sc.code) return '⌃⇧R';
@@ -2148,6 +2465,10 @@ function initOverlayShortcutRecorder() {
     const input = $('#overlay-shortcut-input');
     if (!input) return;
     loadOverlayShortcut();
+    syncOverlayHotkeyToBackend();
+    setInterval(() => {
+        if (!statusPollTimer) pollCaptureStatusOnce();
+    }, 1500);
 
     const startRecording = () => {
         isRecordingOverlayShortcut = true;
@@ -2192,7 +2513,12 @@ function initOverlayShortcutRecorder() {
             }
             stopRecording();
             input.blur();
+            syncOverlayHotkeyToBackend();
             showToast(t('toast_overlay_shortcut_set', { shortcut: formatOverlayShortcut(overlayShortcut) }), 'success');
+            return;
+        }
+
+        if (globalHotkeyListening) {
             return;
         }
 

@@ -127,3 +127,64 @@ def summarize_with_afm(folder: str, filenames: list[str], lang: str = "en") -> t
 
     processed = int(data.get("processed") or len(image_paths))
     return summary, processed
+
+
+def stream_summarize_with_afm(folder: str, filenames: list[str], lang: str = "en"):
+    """Stream Vision OCR + on-device AFM summarization events as dicts."""
+    helper = get_afm_helper_path()
+    if not os.path.isfile(helper):
+        yield {"type": "error", "reason": "helper_missing", "error": "afm_helper binary not found"}
+        return
+
+    image_paths = []
+    for name in filenames:
+        full_path = os.path.join(folder, name)
+        if os.path.isfile(full_path):
+            image_paths.append(full_path)
+
+    if not image_paths:
+        yield {"type": "error", "reason": "no_images", "error": "No valid image files found"}
+        return
+
+    payload = json.dumps({
+        "images": image_paths,
+        "lang": "vi" if lang == "vi" else "en",
+    })
+
+    try:
+        proc = subprocess.Popen(
+            [helper, "--stream"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+    except OSError as exc:
+        yield {"type": "error", "reason": "exec_error", "error": str(exc)}
+        return
+
+    try:
+        if proc.stdin:
+            proc.stdin.write(payload)
+            proc.stdin.close()
+
+        if proc.stdout:
+            for line in proc.stdout:
+                cleaned = line.strip()
+                if not cleaned:
+                    continue
+                try:
+                    evt = json.loads(cleaned)
+                    if isinstance(evt, dict):
+                        yield evt
+                except json.JSONDecodeError:
+                    continue
+
+        proc.wait(timeout=10)
+    except Exception as exc:
+        try:
+            proc.kill()
+        except OSError:
+            pass
+        yield {"type": "error", "reason": "exec_error", "error": str(exc)}

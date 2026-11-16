@@ -117,6 +117,55 @@ class TestFlaskAFMEndpointsAndI18n(unittest.TestCase):
         self.assertEqual(data["count"], 1)
         self.assertIn("Bullet", data["summary"])
 
+    def test_afm_summarize_stream_endpoint(self):
+        fname = "Screenshot 2026-01-01 at 10.00.01.png"
+        with open(os.path.join(self.tmpdir.name, fname), "wb") as fp:
+            fp.write(TINY_PNG)
+        app_module.state["folder_path"] = self.tmpdir.name
+        app_module.state["files"] = [fname]
+
+        fake_events = [
+            {"type": "delta", "text": "## Page 1\n"},
+            {"type": "delta", "text": "- Fast stream"},
+            {"type": "done", "processed": 1},
+        ]
+        with patch("app.stream_summarize_with_afm", return_value=iter(fake_events)):
+            res = self.client.post("/api/afm/summarize-stream", json={"lang": "en", "filenames": [fname]})
+        body = res.get_data(as_text=True)
+        self.assertIn("text/event-stream", res.content_type)
+        self.assertIn("Fast stream", body)
+        self.assertIn('"type": "done"', body)
+
+    def test_capture_hotkey_endpoint(self):
+        with patch.object(app_module.global_hotkey_manager, "start", return_value=True):
+            res = self.client.post(
+                "/api/capture/hotkey",
+                json={"shortcut": {"code": "KeyK", "ctrl": True, "shift": True, "alt": False, "meta": False}},
+            )
+        data = res.get_json()
+        self.assertTrue(data["ok"])
+        self.assertTrue(data["listening"])
+        self.assertEqual(data["shortcut"]["code"], "KeyK")
+        self.assertEqual(data["shortcut"]["keycode"], 40)
+
+    def test_open_permission_settings_endpoint(self):
+        with patch("app.subprocess.Popen") as popen_mock:
+            res = self.client.post(
+                "/api/capture/open-permission-settings",
+                json={"permission": "screen_recording", "lang": "vi"},
+            )
+        self.assertTrue(res.get_json()["ok"])
+        popen_mock.assert_called_once()
+        cmd = popen_mock.call_args.args[0]
+        self.assertEqual(cmd[0], "open")
+        self.assertIn("Privacy_ScreenCapture", cmd[1])
+
+        bad = self.client.post(
+            "/api/capture/open-permission-settings",
+            json={"permission": "unknown", "lang": "en"},
+        )
+        self.assertFalse(bad.get_json()["ok"])
+
     def test_en_vi_i18n_parity(self):
         app_js = (PROJECT_ROOT / "static" / "app.js").read_text(encoding="utf-8")
         index_html = (PROJECT_ROOT / "templates" / "index.html").read_text(encoding="utf-8")

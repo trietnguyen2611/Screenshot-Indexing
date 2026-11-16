@@ -14,11 +14,12 @@ if "--overlay-picker" in sys.argv:
     from services.macos_overlay import run_overlay_cli
     sys.exit(run_overlay_cli(target))
 
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, Response, render_template, jsonify, request, send_from_directory
 
 from services.afm_summarizer import (
     AFMSummarizerError,
     check_afm_availability,
+    stream_summarize_with_afm,
     summarize_with_afm,
 )
 from services.config_store import load_config, reset_config, save_config
@@ -27,6 +28,7 @@ from services.macos_capture import (
     capture_fullscreen_preview,
     cleanup_preview_file,
 )
+from services.macos_hotkey import global_hotkey_manager
 from services.macos_input import resolve_key_code
 from services.macos_overlay import pick_screen_overlay
 from services.macos_permissions import check_permissions
@@ -78,8 +80,35 @@ def get_msg(key, lang):
 # Store current state
 state = {
     "folder_path": "",
-    "files": []
+    "files": [],
+    "region_revision": 0,
+    "last_preview_meta": None,
 }
+
+
+def _on_global_overlay_hotkey():
+    """Triggered from macOS global hotkey even when another app (e.g. Safari) is focused."""
+    res = pick_screen_overlay("region")
+    if not res.get("ok") or res.get("cancelled"):
+        return
+    region = res.get("region")
+    if isinstance(region, dict):
+        save_config({"region": region})
+    preview_res = capture_fullscreen_preview(delay_sec=0.1)
+    if isinstance(preview_res, dict) and preview_res.get("ok"):
+        state["last_preview_meta"] = {
+            "screen_width": preview_res.get("screen_width"),
+            "screen_height": preview_res.get("screen_height"),
+            "image_width": preview_res.get("image_width"),
+            "image_height": preview_res.get("image_height"),
+            "scale_factor": preview_res.get("scale_factor"),
+            "origin_x": preview_res.get("origin_x", 0),
+            "origin_y": preview_res.get("origin_y", 0),
+        }
+    state["region_revision"] = int(state.get("region_revision", 0)) + 1
+
+
+global_hotkey_manager.set_callback(_on_global_overlay_hotkey)
 
 
 @app.route("/api/image")
@@ -370,6 +399,29 @@ def capture_permissions():
     })
 
 
+@app.route("/api/capture/open-permission-settings", methods=["POST"])
+def open_permission_settings():
+    """Open macOS System Settings directly to Screen Recording or Accessibility Privacy pane."""
+    data = request.get_json(silent=True) or {}
+    perm = (data.get("permission") or "").strip()
+    lang = data.get("lang", "en")
+
+    urls = {
+        "screen_recording": "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+        "accessibility": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+    }
+    target_url = urls.get(perm)
+    if not target_url:
+        return jsonify({"ok": False, "message": f"{get_msg('error_prefix', lang)}: Unknown permission"})
+
+    try:
+        subprocess.Popen(["open", target_url])
+    except OSError as exc:
+        return jsonify({"ok": False, "message": f"{get_msg('error_prefix', lang)}: {exc}"})
+
+    return jsonify({"ok": True})
+
+
 @app.route("/api/capture/preview-screen", methods=["POST"])
 def capture_preview_screen():
     """Capture full-screen preview image and display coordinate metadata."""
@@ -583,12 +635,24 @@ def capture_stop():
     })
 
 
+@app.route("/api/capture/hotkey", methods=["POST"])
+def capture_hotkey():
+    """Update the macOS system-wide global hotkey for the region overlay picker."""
+    data = request.get_json(silent=True) or {}
+    shortcut = global_hotkey_manager.update_shortcut(data.get("shortcut") or data)
+    started = global_hotkey_manager.start()
+    return jsonify({"ok": True, "shortcut": shortcut, "listening": started})
+
+
 @app.route("/api/capture/status", methods=["GET"])
 def capture_status():
     """Return current auto-capture worker status snapshot."""
     return jsonify({
         "ok": True,
         "status": capture_controller.get_status(),
+        "region_revision": int(state.get("region_revision", 0)),
+        "region": load_config().get("region"),
+        "preview_meta": state.get("last_preview_meta"),
     })
 
 
@@ -680,6 +744,55 @@ def afm_summarize():
     })
 
 
+@app.route("/api/afm/summarize-stream", methods=["POST"])
+def afm_summarize_stream():
+    """Stream Vision OCR + on-device AFM summarization via Server-Sent Events."""
+    data = request.get_json(silent=True) or {}
+    lang = data.get("lang", "en")
+    folder = state.get("folder_path", "")
+    files = list(state.get("files") or [])
+
+    if not files:
+        return jsonify({"ok": False, "message": get_msg("no_files", lang)})
+    if not folder or not os.path.isdir(folder):
+        return jsonify({"ok": False, "message": get_msg("folder_not_exist", lang)})
+
+    requested_files = data.get("filenames")
+    if isinstance(requested_files, list) and requested_files:
+        allowed = set(files)
+        target_files = [f for f in requested_files if isinstance(f, str) and f in allowed]
+    else:
+        target_files = files
+
+    if not target_files:
+        return jsonify({"ok": False, "message": get_msg("no_files", lang)})
+
+    def _generate():
+        for evt in stream_summarize_with_afm(folder=folder, filenames=target_files, lang=lang):
+            if evt.get("type") == "done":
+                count = int(evt.get("processed") or len(target_files))
+                evt["message"] = get_msg("afm_summarize_success", lang).format(count=count)
+            elif evt.get("type") == "error":
+                reason = evt.get("reason") or "afm_error"
+                if reason in (
+                    "device_not_eligible",
+                    "apple_intelligence_not_enabled",
+                    "model_not_ready",
+                    "helper_missing",
+                    "unavailable",
+                ):
+                    evt["message"] = f"{get_msg('afm_unavailable', lang)} ({reason})"
+                else:
+                    evt["message"] = f"{get_msg('afm_failed', lang)}: {evt.get('error') or reason}"
+            yield f"data: {json.dumps(evt, ensure_ascii=False)}\n\n"
+
+    return Response(
+        _generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 def cleanup_session():
     """Stop active capture, wipe persisted session config/preview, and reset state."""
     try:
@@ -694,8 +807,13 @@ def cleanup_session():
         cleanup_preview_file()
     except Exception:
         pass
+    try:
+        global_hotkey_manager.stop()
+    except Exception:
+        pass
     state["folder_path"] = ""
     state["files"] = []
+    state["region_revision"] = 0
 
 
 if __name__ == "__main__":
@@ -704,6 +822,7 @@ if __name__ == "__main__":
 
     cleanup_session()
     atexit.register(cleanup_session)
+    global_hotkey_manager.start()
 
     # Start Flask in a background thread
     flask_thread = threading.Thread(

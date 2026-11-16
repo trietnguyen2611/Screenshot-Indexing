@@ -195,12 +195,13 @@
                                     <line x1="9" y1="20" x2="15" y2="20" />
                                     <line x1="12" y1="4" x2="12" y2="20" />
                                 </svg>
-                                <span data-i18n="afm_summarize">AFM Summarize</span>
+                                <span data-i18n="afm_summarize">AI Summarize</span>
                             </button>
                         </div>
-                        <div class="card notes-card">
+                        <div id="notes-card" class="card notes-card">
                             <textarea id="notes-input" class="notes-input" placeholder="Enter notes here..."
                                 data-i18n-placeholder="notes_placeholder" oninput="saveNotes()"></textarea>
+                            <div id="notes-stream-overlay" class="notes-stream-overlay" style="display: none;" aria-hidden="true"></div>
                         </div>
                     </section>
 
@@ -348,7 +349,7 @@
                                             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                                             <circle cx="12" cy="13" r="4" />
                                         </svg>
-                                        <span data-i18n="btn_test_shot_now">Test Shot Now</span>
+                                        <span data-i18n="btn_test_shot_now">Test Now</span>
                                     </button>
                                     <button type="button" id="btn-capture-preview-delay" class="btn btn-secondary"
                                         onclick="capturePreviewScreen(2.0)">
@@ -357,7 +358,7 @@
                                             <circle cx="12" cy="12" r="10" />
                                             <polyline points="12 6 12 12 16 14" />
                                         </svg>
-                                        <span data-i18n="btn_test_shot_2s">Test Shot in 2s</span>
+                                        <span data-i18n="btn_test_shot_2s">Test 2s</span>
                                     </button>
                                 </div>
                                 <label class="pt-field">
@@ -411,9 +412,9 @@
                                 <label class="capture-field-label" for="capture-sound-toggle">
                                     <span data-i18n="capture_sound_label">macOS Shutter Sound</span>
                                 </label>
-                                <label class="apple-switch">
-                                    <input id="capture-sound-toggle" type="checkbox" checked onchange="saveCaptureSettingsFromUI()">
-                                    <span class="apple-switch-slider"></span>
+                                <label class="apple-switch tech-switch">
+                                    <input id="capture-sound-toggle" type="checkbox" checked onchange="onCaptureSoundToggleChange(this.checked)">
+                                    <span class="apple-slider-round tech-switch-slider"></span>
                                 </label>
                             </div>
                         </div>
@@ -434,9 +435,9 @@
                                 <label class="capture-field-label" for="page-turn-enabled">
                                     <span data-i18n="page_turn_enable">Enable auto page-turn</span>
                                 </label>
-                                <label class="apple-switch">
+                                <label class="apple-switch tech-switch">
                                     <input id="page-turn-enabled" type="checkbox" checked onchange="onPageTurnEnabledChange()">
-                                    <span class="apple-switch-slider"></span>
+                                    <span class="apple-slider-round tech-switch-slider"></span>
                                 </label>
                             </div>
 
@@ -495,11 +496,23 @@
                             <div id="capture-permissions-box" class="capture-permissions-box">
                                 <div class="perm-row">
                                     <span class="perm-label" data-i18n="perm_screen_recording">Screen Recording</span>
-                                    <span id="perm-screen-badge" class="perm-badge perm-unknown">—</span>
+                                    <div class="perm-row-actions">
+                                        <span id="perm-screen-badge" class="perm-badge perm-unknown">—</span>
+                                        <button type="button" class="btn btn-secondary btn-compact btn-perm-open"
+                                            onclick="openPermissionSettings('screen_recording')">
+                                            <span data-i18n="btn_open_settings">Open</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="perm-row">
                                     <span class="perm-label" data-i18n="perm_accessibility">Accessibility</span>
-                                    <span id="perm-access-badge" class="perm-badge perm-unknown">—</span>
+                                    <div class="perm-row-actions">
+                                        <span id="perm-access-badge" class="perm-badge perm-unknown">—</span>
+                                        <button type="button" class="btn btn-secondary btn-compact btn-perm-open"
+                                            onclick="openPermissionSettings('accessibility')">
+                                            <span data-i18n="btn_open_settings">Open</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 <button type="button" id="btn-check-permissions" class="btn btn-secondary btn-full btn-compact"
                                     onclick="requestCapturePermissions(true)">
@@ -546,7 +559,18 @@
                                     <line x1="12" y1="17" x2="12" y2="21" />
                                 </svg>
                                 <div class="empty-state-title"><span data-i18n="canvas_empty_title">No preview</span></div>
-                                <button type="button" class="btn btn-primary btn-compact" onclick="capturePreviewScreen(0.2)">
+                                <div id="canvas-permission-notice" class="canvas-perm-notice" style="display: none;">
+                                    <span class="canvas-perm-text" data-i18n="canvas_perm_required">Screen Recording permission is required to display Screen Preview.</span>
+                                    <div class="canvas-perm-actions">
+                                        <button type="button" class="btn btn-primary btn-compact" onclick="openPermissionSettings('screen_recording')">
+                                            <span data-i18n="btn_open_screen_perm">Open Screen Recording Settings</span>
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-compact" onclick="requestCapturePermissions(true)">
+                                            <span data-i18n="btn_check_permissions">Check Permissions</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="button" id="btn-canvas-test-shot" class="btn btn-primary btn-compact" onclick="capturePreviewScreen(0.2)">
                                     <span data-i18n="btn_test_shot_now">Test Shot Now</span>
                                 </button>
                             </div>
@@ -758,7 +782,7 @@
                     <button type="button" id="btn-afm-summarize-single" class="btn btn-secondary btn-compact"
                         onclick="summarizeCurrentImageWithAFM()" title="Summarize this image into Notes using AFM"
                         data-i18n-title="afm_summarize_one_title">
-                        <span data-i18n="afm_summarize_one">AFM Summarize Image</span>
+                        <span data-i18n="afm_summarize_one">AI Summarize Image</span>
                     </button>
                 </div>
                 <button type="button" class="modal-close" onclick="closeImageModal()">
@@ -769,7 +793,7 @@
                     </svg>
                 </button>
             </div>
-            <div class="modal-body image-body">
+            <div class="modal-body image-body" onclick="onImageBodyClick(event)">
                 <button type="button" class="image-nav-btn nav-prev" onclick="navigateImage(-1)"
                     title="Previous Image (Left Arrow / Up)" data-i18n-title="prev_image">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
@@ -778,7 +802,23 @@
                     </svg>
                 </button>
                 <div class="image-preview-container">
-                    <img id="image-modal-img" src="" alt="Screenshot Preview" />
+                    <img id="image-modal-img" src="" alt="Screenshot Preview" onclick="closeImageSummaryPopover()" />
+                    <div id="image-summary-popover" class="image-summary-popover" style="display: none;">
+                        <div class="image-summary-header">
+                            <span class="image-summary-title" data-i18n="ai_summary_title">AI Summary</span>
+                            <div class="image-summary-actions">
+                                <button type="button" class="btn btn-secondary btn-compact" onclick="copyImageSummaryPopover()" data-i18n="btn_copy">Copy</button>
+                                <button type="button" class="modal-close image-summary-close" onclick="closeImageSummaryPopover()" aria-label="Close">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="image-summary-body" class="image-summary-body"></div>
+                    </div>
                 </div>
                 <button type="button" class="image-nav-btn nav-next" onclick="navigateImage(1)"
                     title="Next Image (Right Arrow / Down)" data-i18n-title="next_image">
