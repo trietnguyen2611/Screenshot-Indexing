@@ -48,21 +48,6 @@ const API = {
         body: JSON.stringify({ lang: currentLang })
     }).then(r => r.json()),
     getCaptureStatus: () => fetch('/api/capture/status').then(r => r.json()),
-    suggestNamesAI: (start = 1) => fetch('/api/ai/suggest-names', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ start, lang: currentLang })
-    }).then(r => r.json()),
-    renameCustomAI: (pairs) => fetch('/api/ai/rename-custom', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pairs, lang: currentLang })
-    }).then(r => r.json()),
-    summarizeAI: (filenames = null) => fetch('/api/ai/summarize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filenames, lang: currentLang })
-    }).then(r => r.json()),
 };
 
 // ── i18n ────────────────────────────────────────────────────────────
@@ -182,29 +167,7 @@ const translations = {
         toast_permissions_error: "Could not check permissions",
         toast_accessibility_needed: "Grant Accessibility permission in System Settings so Auto Page-Turn can press keys",
         toast_key_recorded: "Page-turn key set to {key}",
-        toast_region_updated: "Region updated: {w}×{h} at ({x}, {y})",
-        ai_suggest_names: "AI Smart Names",
-        ai_suggesting: "Analyzing...",
-        ai_summarize: "AI Summarize",
-        ai_summarizing: "Summarizing...",
-        ai_summarize_title: "Summarize screenshots into notes with Gemini",
-        ai_settings_title: "Gemini AI Settings",
-        ai_settings_modal_title: "Gemini AI Settings",
-        ai_key_status_label: "API Key Status",
-        ai_key_not_set: "Not configured",
-        ai_key_active_config: "Saved ({hint})",
-        ai_key_active_env: "Env var ({hint})",
-        ai_settings_desc: "Enter your Google Gemini API key to enable AI Smart Names and AI Summarize (gemini-4-hydrogen). You can also set the GEMINI_API_KEY environment variable.",
-        ai_key_label: "Gemini API Key",
-        ai_key_placeholder: "AIza...",
-        ai_key_save: "Save Key",
-        ai_key_clear: "Clear Key",
-        ai_badge_label: "AI",
-        toast_ai_no_files: "Scan a folder with screenshots first",
-        toast_ai_key_required: "Please enter a Gemini API key",
-        toast_ai_key_saved: "Gemini API key saved",
-        toast_ai_key_cleared: "Gemini API key cleared",
-        toast_ai_error: "Gemini AI request failed"
+        toast_region_updated: "Region updated: {w}×{h} at ({x}, {y})"
     },
     vi: {
         desc: "Đổi tên đồng loạt file screenshot theo thứ tự thời gian",
@@ -321,29 +284,7 @@ const translations = {
         toast_permissions_error: "Không thể kiểm tra quyền macOS",
         toast_accessibility_needed: "Hãy cấp quyền Trợ năng (Accessibility) trong Cài đặt hệ thống để phím lật trang hoạt động",
         toast_key_recorded: "Đã đặt phím lật trang: {key}",
-        toast_region_updated: "Đã cập nhật vùng: {w}×{h} tại ({x}, {y})",
-        ai_suggest_names: "Gợi ý tên AI",
-        ai_suggesting: "Đang phân tích...",
-        ai_summarize: "Tóm tắt AI",
-        ai_summarizing: "Đang tóm tắt...",
-        ai_summarize_title: "Tóm tắt nội dung ảnh vào ghi chú bằng Gemini",
-        ai_settings_title: "Cài đặt Gemini AI",
-        ai_settings_modal_title: "Cài đặt Gemini AI",
-        ai_key_status_label: "Trạng thái API Key",
-        ai_key_not_set: "Chưa cấu hình",
-        ai_key_active_config: "Đã lưu ({hint})",
-        ai_key_active_env: "Biến môi trường ({hint})",
-        ai_settings_desc: "Nhập Google Gemini API key để dùng Gợi ý tên AI và Tóm tắt AI (gemini-4-hydrogen). Bạn cũng có thể đặt biến môi trường GEMINI_API_KEY.",
-        ai_key_label: "Gemini API Key",
-        ai_key_placeholder: "AIza...",
-        ai_key_save: "Lưu Key",
-        ai_key_clear: "Xóa Key",
-        ai_badge_label: "AI",
-        toast_ai_no_files: "Hãy quét một thư mục có ảnh chụp màn hình trước",
-        toast_ai_key_required: "Vui lòng nhập Gemini API key",
-        toast_ai_key_saved: "Đã lưu Gemini API key",
-        toast_ai_key_cleared: "Đã xóa Gemini API key",
-        toast_ai_error: "Yêu cầu Gemini AI thất bại"
+        toast_region_updated: "Đã cập nhật vùng: {w}×{h} tại ({x}, {y})"
     }
 };
 
@@ -404,7 +345,6 @@ function setLanguage(lang) {
 let activeTab = 'indexing';
 let currentFolder = '';
 let currentFiles = [];
-let aiSuggestedNames = null;
 let browserCurrentPath = '';
 let browserTarget = 'indexing';
 let currentImageIndex = -1;
@@ -678,8 +618,19 @@ async function scanFiles() {
         const res = await API.scanFiles(currentFolder);
         if (res.ok) {
             currentFiles = res.files;
-            aiSuggestedNames = null;
-            renderTable(res.files);
+            const startInput = $('#input-start');
+            const endInput = $('#input-end');
+            if (res.files.length > 0 && startInput && endInput && !startInput.value && !endInput.value) {
+                startInput.value = '1';
+                endInput.value = String(res.files.length);
+            }
+            const parsedStart = parseInt(startInput?.value);
+            const parsedEnd = parseInt(endInput?.value);
+            if (!isNaN(parsedStart) && !isNaN(parsedEnd) && parsedStart <= parsedEnd && res.files.length > 0) {
+                renderTable(res.files, parsedStart, parsedEnd);
+            } else {
+                renderTable(res.files);
+            }
             setStatus(t('status_file_count', { count: res.count }), 'success');
             $('#file-count').textContent = `(${res.count})`;
         } else {
@@ -712,7 +663,7 @@ function handleRowClick(tr) {
     }
 }
 
-function renderTable(files, startNum = null) {
+function renderTable(files, startNum = null, endNum = null) {
     const tbody = $('#file-tbody');
     const wrapper = $('#table-wrapper');
     const emptyState = $('#empty-state');
@@ -725,20 +676,15 @@ function renderTable(files, startNum = null) {
     emptyState.style.display = 'none';
     wrapper.style.display = 'flex';
 
+    const maxCount = (startNum !== null && endNum !== null && endNum >= startNum)
+        ? (endNum - startNum + 1)
+        : files.length;
+
     const rowTitle = escapeAttr(t('click_to_preview'));
-    const useAiNames = aiSuggestedNames && Object.keys(aiSuggestedNames).length > 0;
     tbody.innerHTML = files.map((f, i) => {
-        let newName = '—';
-        let isAi = false;
-        if (useAiNames && aiSuggestedNames[f.name]) {
-            newName = aiSuggestedNames[f.name];
-            isAi = true;
-        } else if (startNum !== null) {
-            newName = `${startNum + i}.png`;
-        }
-        const hasNewName = newName !== '—';
-        const newNameClass = hasNewName ? '' : 'style="color: var(--color-ink-muted-48); font-weight: 400;"';
-        const aiBadge = isAi ? `<span class="ai-name-badge">${escapeAttr(t('ai_badge_label'))}</span>` : '';
+        const inRange = startNum !== null && i < maxCount;
+        const newName = inRange ? `${startNum + i}.png` : '—';
+        const newNameClass = inRange ? '' : 'style="color: var(--color-ink-muted-48); font-weight: 400;"';
         const attrName = escapeAttr(f.name);
         return `<tr class="clickable-row" data-filename="${attrName}" onclick="handleRowClick(this)" title="${rowTitle}">
             <td>${f.index}</td>
@@ -752,7 +698,7 @@ function renderTable(files, startNum = null) {
                     <span>${attrName}</span>
                 </div>
             </td>
-            <td ${newNameClass}>${escapeAttr(newName)}${aiBadge}</td>
+            <td ${newNameClass}>${escapeAttr(newName)}</td>
         </tr>`;
     }).join('');
 }
@@ -789,8 +735,7 @@ function preview() {
     const totalNumbers = endNum - startNum + 1;
     const count = Math.min(currentFiles.length, totalNumbers);
 
-    aiSuggestedNames = null;
-    renderTable(currentFiles.slice(0, count), startNum);
+    renderTable(currentFiles, startNum, endNum);
     setStatus(t('status_preview', { count: count }), 'info');
 }
 
@@ -802,25 +747,6 @@ function requestRename() {
     if (!currentFiles.length) {
         showToast(t('toast_no_rename'));
         return;
-    }
-
-    if (aiSuggestedNames && Object.keys(aiSuggestedNames).length > 0) {
-        const pairs = currentFiles
-            .filter(f => Boolean(aiSuggestedNames[f.name]))
-            .map(f => ({ old_name: f.name, new_name: aiSuggestedNames[f.name] }));
-        if (pairs.length > 0) {
-            pendingRenameData = { mode: 'ai', pairs, count: pairs.length };
-            $('#confirm-count-text').textContent = t('confirm_rename_count', { count: pairs.length });
-            $('#confirm-first-old').textContent = pairs[0].old_name;
-            $('#confirm-first-new').textContent = pairs[0].new_name;
-            $('#confirm-last-old').textContent = pairs[pairs.length - 1].old_name;
-            $('#confirm-last-new').textContent = pairs[pairs.length - 1].new_name;
-
-            const modal = $('#confirm-modal');
-            modal.classList.remove('closing');
-            modal.style.display = 'flex';
-            return;
-        }
     }
 
     const startNum = parseInt($('#input-start').value);
@@ -839,7 +765,7 @@ function requestRename() {
     const totalNumbers = endNum - startNum + 1;
     const count = Math.min(currentFiles.length, totalNumbers);
 
-    pendingRenameData = { mode: 'range', startNum, endNum, count };
+    pendingRenameData = { startNum, endNum, count };
 
     $('#confirm-count-text').textContent = t('confirm_rename_count', { count: count });
     $('#confirm-first-old').textContent = currentFiles[0].name;
@@ -868,7 +794,7 @@ function closeConfirmOutside(event) {
 async function executeRename() {
     if (!pendingRenameData) return;
 
-    const renameData = pendingRenameData;
+    const { startNum, endNum } = pendingRenameData;
     closeConfirmModal();
 
     const btn = $('#btn-rename');
@@ -876,14 +802,11 @@ async function executeRename() {
     btn.innerHTML = `<span class="spinner"></span> ${escapeAttr(t('btn_renaming'))}`;
 
     try {
-        const res = renameData.mode === 'ai'
-            ? await API.renameCustomAI(renameData.pairs)
-            : await API.renameFiles(renameData.startNum, renameData.endNum);
+        const res = await API.renameFiles(startNum, endNum);
         if (res.ok) {
             showToast(escapeAttr(res.message), 'success');
             setStatus(res.message, 'success');
             currentFiles = [];
-            aiSuggestedNames = null;
             renderEmptyState();
             $('#file-count').textContent = '';
         } else {
@@ -1309,10 +1232,7 @@ async function loadCaptureSettings() {
     try {
         const res = await API.getSettings();
         if (res.ok) {
-            if (res.settings) {
-                applySettingsToUI(res.settings);
-                updateAiKeyStatusUI(res.settings);
-            }
+            if (res.settings) applySettingsToUI(res.settings);
             if (res.permissions) renderPermissionBadges(res.permissions);
         }
     } catch (err) {
@@ -1937,190 +1857,8 @@ document.addEventListener('keydown', (e) => {
         closeBrowser();
         closeConfirmModal();
         closeImageModal();
-        closeAiSettingsModal();
     }
 });
-
-// ── Gemini AI Assistant ─────────────────────────────────────────────
-
-function updateAiKeyStatusUI(settings) {
-    const dot = $('#ai-key-status-dot');
-    const badge = $('#ai-key-status-badge');
-    const hasKey = Boolean(settings && settings.has_gemini_api_key);
-    if (dot) {
-        dot.classList.toggle('active', hasKey);
-    }
-    if (badge) {
-        badge.classList.toggle('configured', hasKey);
-        if (!hasKey) {
-            badge.textContent = t('ai_key_not_set');
-        } else if (settings.gemini_api_key_source === 'env') {
-            badge.textContent = t('ai_key_active_env', { hint: settings.gemini_api_key_hint || '••••' });
-        } else {
-            badge.textContent = t('ai_key_active_config', { hint: settings.gemini_api_key_hint || '••••' });
-        }
-    }
-}
-
-async function openAiSettingsModal() {
-    const modal = $('#ai-settings-modal');
-    if (!modal) return;
-    const input = $('#ai-key-input');
-    if (input) input.value = '';
-    modal.classList.remove('closing');
-    modal.style.display = 'flex';
-    try {
-        const res = await API.getSettings();
-        if (res.ok && res.settings) {
-            updateAiKeyStatusUI(res.settings);
-        }
-    } catch (err) {
-        // Non-fatal
-    }
-}
-
-function closeAiSettingsModal() {
-    const modal = $('#ai-settings-modal');
-    if (!modal || modal.style.display === 'none') return;
-    closeModalWithAnimation(modal, () => {
-        const input = $('#ai-key-input');
-        if (input) input.value = '';
-    });
-}
-
-function closeAiSettingsOutside(event) {
-    if (event.target === event.currentTarget) {
-        closeAiSettingsModal();
-    }
-}
-
-async function saveAiKey() {
-    const input = $('#ai-key-input');
-    const key = input ? input.value.trim() : '';
-    if (!key) {
-        showToast(t('toast_ai_key_required'), 'warning');
-        return;
-    }
-    try {
-        const res = await API.saveSettings({ gemini_api_key: key });
-        if (res.ok) {
-            if (res.settings) updateAiKeyStatusUI(res.settings);
-            showToast(t('toast_ai_key_saved'), 'success');
-            closeAiSettingsModal();
-        } else {
-            showToast(escapeAttr(res.message || t('toast_ai_error')), 'error');
-        }
-    } catch (err) {
-        showToast(t('toast_ai_error'), 'error');
-    }
-}
-
-async function clearAiKey() {
-    try {
-        const res = await API.saveSettings({ gemini_api_key: '' });
-        if (res.ok) {
-            if (res.settings) updateAiKeyStatusUI(res.settings);
-            const input = $('#ai-key-input');
-            if (input) input.value = '';
-            showToast(t('toast_ai_key_cleared'), 'info');
-        } else {
-            showToast(escapeAttr(res.message || t('toast_ai_error')), 'error');
-        }
-    } catch (err) {
-        showToast(t('toast_ai_error'), 'error');
-    }
-}
-
-async function suggestNamesWithAI() {
-    if (!currentFiles.length) {
-        showToast(t('toast_ai_no_files'), 'warning');
-        return;
-    }
-
-    const btn = $('#btn-ai-suggest');
-    const rawStart = parseInt($('#input-start')?.value);
-    const startNum = !isNaN(rawStart) && rawStart >= 0 ? rawStart : 1;
-
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = `<span class="spinner"></span> ${escapeAttr(t('ai_suggesting'))}`;
-    }
-
-    try {
-        const res = await API.suggestNamesAI(startNum);
-        if (res.ok && Array.isArray(res.suggestions)) {
-            const map = {};
-            for (const item of res.suggestions) {
-                if (item.original_name && item.new_name) {
-                    map[item.original_name] = item.new_name;
-                }
-            }
-            aiSuggestedNames = map;
-            renderTable(currentFiles);
-            showToast(escapeAttr(res.message), 'success');
-        } else {
-            showToast(escapeAttr(res.message || t('toast_ai_error')), 'error');
-            if (res.code === 'missing_api_key') {
-                openAiSettingsModal();
-            }
-        }
-    } catch (err) {
-        showToast(t('toast_ai_error'), 'error');
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = `
-                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
-                </svg>
-                <span data-i18n="ai_suggest_names">${escapeAttr(t('ai_suggest_names'))}</span>
-            `;
-        }
-    }
-}
-
-async function summarizeWithAI() {
-    if (!currentFiles.length) {
-        showToast(t('toast_ai_no_files'), 'warning');
-        return;
-    }
-
-    const btn = $('#btn-ai-summarize');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = `<span class="spinner"></span> ${escapeAttr(t('ai_summarizing'))}`;
-    }
-
-    try {
-        const res = await API.summarizeAI();
-        if (res.ok && res.summary) {
-            const notesEl = $('#notes-input');
-            if (notesEl) {
-                const existing = notesEl.value.trim();
-                notesEl.value = existing ? `${existing}\n\n${res.summary}` : res.summary;
-                saveNotes();
-            }
-            showToast(escapeAttr(res.message), 'success');
-        } else {
-            showToast(escapeAttr(res.message || t('toast_ai_error')), 'error');
-            if (res.code === 'missing_api_key') {
-                openAiSettingsModal();
-            }
-        }
-    } catch (err) {
-        showToast(t('toast_ai_error'), 'error');
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = `
-                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
-                </svg>
-                <span data-i18n="ai_summarize">${escapeAttr(t('ai_summarize'))}</span>
-            `;
-        }
-    }
-}
 
 // ── Theme Switching ─────────────────────────────────────────────────
 
@@ -2173,6 +1911,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadNotes();
     initKeyRecorder();
     initCaptureCanvas();
+
+    const folderInputEl = $('#folder-input');
+    if (folderInputEl) {
+        folderInputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                refreshFiles();
+            }
+        });
+    }
+    ['#input-start', '#input-end'].forEach((sel) => {
+        const el = $(sel);
+        if (el) {
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    preview();
+                }
+            });
+        }
+    });
 
     await loadCaptureSettings();
     await pollCaptureStatusOnce();
