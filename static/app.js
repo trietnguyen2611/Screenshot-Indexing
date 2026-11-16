@@ -6,6 +6,11 @@ const API = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path, lang: currentLang })
     }).then(r => r.json()),
+    browseNative: (path) => fetch('/api/browse-native', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, lang: currentLang })
+    }).then(r => r.json()),
     scanFiles: (folder) => fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -48,6 +53,12 @@ const API = {
         body: JSON.stringify({ lang: currentLang })
     }).then(r => r.json()),
     getCaptureStatus: () => fetch('/api/capture/status').then(r => r.json()),
+    getAfmStatus: () => fetch('/api/afm/status').then(r => r.json()),
+    summarizeAFM: (filenames = null) => fetch('/api/afm/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filenames, lang: currentLang })
+    }).then(r => r.json()),
 };
 
 // ── i18n ────────────────────────────────────────────────────────────
@@ -167,7 +178,35 @@ const translations = {
         toast_permissions_error: "Could not check permissions",
         toast_accessibility_needed: "Grant Accessibility permission in System Settings so Auto Page-Turn can press keys",
         toast_key_recorded: "Page-turn key set to {key}",
-        toast_region_updated: "Region updated: {w}×{h} at ({x}, {y})"
+        toast_region_updated: "Region updated: {w}×{h} at ({x}, {y})",
+        tab_settings: "Settings",
+        afm_summarize: "AFM Summarize",
+        afm_summarizing: "Summarizing...",
+        afm_summarize_title: "Summarize screenshots into notes using on-device Apple Foundation Model",
+        afm_summarize_one: "AFM Summarize Image",
+        afm_summarize_one_title: "Summarize this image into Notes using AFM",
+        settings_afm_section: "On-Device AI Engine (Apple Silicon AFM)",
+        settings_afm_status_title: "Apple Foundation Model Status",
+        settings_afm_status_desc: "Runs locally via Vision OCR + FoundationModels.framework without cloud API keys.",
+        afm_status_checking: "Checking...",
+        afm_status_available: "Available (On-Device)",
+        afm_status_unavailable: "Unavailable ({reason})",
+        settings_features_section: "Feature Toggles",
+        feat_afm_title: "AFM Note Summarization",
+        feat_afm_desc: "Show on-device AFM Summarize actions in Notes and Image Preview.",
+        feat_notes_title: "Notes Panel",
+        feat_notes_desc: "Display the Markdown/text Notes workspace in Screenshot Indexing.",
+        feat_capture_title: "Auto Capture Tab",
+        feat_capture_desc: "Enable timed screen region capture and auto page-turn controls.",
+        feat_sound_title: "macOS Shutter Sound",
+        feat_sound_desc: "Play native camera shutter sound on each captured screenshot.",
+        toast_afm_no_files: "Scan a folder with screenshots first",
+        toast_afm_error: "AFM summarization failed",
+        overlay_shortcut_label: "Region Picker Shortcut (click & press)",
+        overlay_shortcut_placeholder: "Click & press shortcut...",
+        overlay_shortcut_title: "Click here and press a key combination to trigger region picker",
+        overlay_shortcut_listening: "Press shortcut...",
+        toast_overlay_shortcut_set: "Region picker shortcut set to {shortcut}"
     },
     vi: {
         desc: "Đổi tên đồng loạt file screenshot theo thứ tự thời gian",
@@ -284,7 +323,35 @@ const translations = {
         toast_permissions_error: "Không thể kiểm tra quyền macOS",
         toast_accessibility_needed: "Hãy cấp quyền Trợ năng (Accessibility) trong Cài đặt hệ thống để phím lật trang hoạt động",
         toast_key_recorded: "Đã đặt phím lật trang: {key}",
-        toast_region_updated: "Đã cập nhật vùng: {w}×{h} tại ({x}, {y})"
+        toast_region_updated: "Đã cập nhật vùng: {w}×{h} tại ({x}, {y})",
+        tab_settings: "Cài đặt",
+        afm_summarize: "Tóm tắt AFM",
+        afm_summarizing: "Đang tóm tắt...",
+        afm_summarize_title: "Tóm tắt ảnh vào ghi chú bằng Apple Foundation Model trên máy",
+        afm_summarize_one: "Tóm tắt ảnh (AFM)",
+        afm_summarize_one_title: "Tóm tắt ảnh này vào Ghi chú bằng AFM",
+        settings_afm_section: "Bộ xử lý AI trên máy (Apple Silicon AFM)",
+        settings_afm_status_title: "Trạng thái Apple Foundation Model",
+        settings_afm_status_desc: "Chạy cục bộ qua Vision OCR + FoundationModels.framework, không cần API key hay cloud.",
+        afm_status_checking: "Đang kiểm tra...",
+        afm_status_available: "Sẵn sàng (Trên máy)",
+        afm_status_unavailable: "Chưa sẵn sàng ({reason})",
+        settings_features_section: "Bật / Tắt tính năng",
+        feat_afm_title: "Tóm tắt ghi chú (AFM)",
+        feat_afm_desc: "Hiện nút Tóm tắt AFM trong khung Ghi chú và cửa sổ xem trước ảnh.",
+        feat_notes_title: "Khung Ghi chú (Notes)",
+        feat_notes_desc: "Hiển thị khung ghi chú Markdown/văn bản ở tab Screenshot Indexing.",
+        feat_capture_title: "Tab Chụp tự động",
+        feat_capture_desc: "Bật tab chụp vùng màn hình theo hẹn giờ và tự động lật trang.",
+        feat_sound_title: "Âm thanh chụp macOS",
+        feat_sound_desc: "Phát âm thanh màn trập gốc mỗi khi chụp màn hình.",
+        toast_afm_no_files: "Hãy quét một thư mục có ảnh chụp màn hình trước",
+        toast_afm_error: "Tóm tắt AFM thất bại",
+        overlay_shortcut_label: "Phím tắt chọn vùng (nhấn để đặt)",
+        overlay_shortcut_placeholder: "Nhấn vào đây và bấm tổ hợp phím...",
+        overlay_shortcut_title: "Nhấn vào đây và bấm tổ hợp phím để mở chọn vùng màn hình",
+        overlay_shortcut_listening: "Hãy bấm tổ hợp phím...",
+        toast_overlay_shortcut_set: "Đã đặt phím tắt chọn vùng: {shortcut}"
     }
 };
 
@@ -408,14 +475,19 @@ function escapeAttr(str) {
 // ── Top Bar Tab Navigation ──────────────────────────────────────────
 
 function switchTab(tabName) {
-    if (tabName !== 'indexing' && tabName !== 'capture') return;
+    if (tabName !== 'indexing' && tabName !== 'capture' && tabName !== 'settings') return;
+    if (tabName === 'capture' && !featureToggles.auto_capture_enabled) {
+        tabName = 'indexing';
+    }
     const prevTab = activeTab;
     activeTab = tabName;
 
     const btnIndexing = $('#tab-btn-indexing');
     const btnCapture = $('#tab-btn-capture');
+    const btnSettings = $('#tab-btn-settings');
     const viewIndexing = $('#view-indexing');
     const viewCapture = $('#view-capture');
+    const viewSettings = $('#view-settings');
 
     if (btnIndexing) {
         btnIndexing.classList.toggle('active', tabName === 'indexing');
@@ -425,6 +497,10 @@ function switchTab(tabName) {
         btnCapture.classList.toggle('active', tabName === 'capture');
         btnCapture.setAttribute('aria-selected', tabName === 'capture' ? 'true' : 'false');
     }
+    if (btnSettings) {
+        btnSettings.classList.toggle('active', tabName === 'settings');
+        btnSettings.setAttribute('aria-selected', tabName === 'settings' ? 'true' : 'false');
+    }
     if (viewIndexing) {
         viewIndexing.classList.toggle('active', tabName === 'indexing');
         viewIndexing.style.display = tabName === 'indexing' ? 'flex' : 'none';
@@ -432,6 +508,10 @@ function switchTab(tabName) {
     if (viewCapture) {
         viewCapture.classList.toggle('active', tabName === 'capture');
         viewCapture.style.display = tabName === 'capture' ? 'flex' : 'none';
+    }
+    if (viewSettings) {
+        viewSettings.classList.toggle('active', tabName === 'settings');
+        viewSettings.style.display = tabName === 'settings' ? 'flex' : 'none';
     }
 
     if (tabName === 'indexing' && prevTab === 'capture') {
@@ -447,6 +527,8 @@ function switchTab(tabName) {
             fitCanvasToStage();
             redrawCaptureCanvas();
         });
+    } else if (tabName === 'settings') {
+        refreshAfmStatus();
     }
 }
 
@@ -528,13 +610,32 @@ function closeModalWithAnimation(modal, callback) {
 
 async function openBrowser(target = 'indexing') {
     browserTarget = target === 'capture' ? 'capture' : 'indexing';
-    const modal = $('#folder-modal');
-    modal.classList.remove('closing');
-    modal.style.display = 'flex';
     const startPath = browserTarget === 'capture'
         ? (($('#capture-folder-input')?.value || '').trim() || currentFolder || '')
         : (currentFolder || '');
-    await browseTo(startPath || undefined);
+
+    try {
+        const res = await API.browseNative(startPath || undefined);
+        if (!res.ok) {
+            showToast(escapeAttr(res.message || t('toast_error_browse')), 'error');
+            return;
+        }
+        if (res.cancelled || !res.path) {
+            return;
+        }
+        if (browserTarget === 'capture') {
+            const capInput = $('#capture-folder-input');
+            if (capInput) capInput.value = res.path;
+            await saveCaptureSettingsFromUI({ showSavedToast: true });
+        } else {
+            currentFolder = res.path;
+            const folderInput = $('#folder-input');
+            if (folderInput) folderInput.value = res.path;
+            scanFiles();
+        }
+    } catch (err) {
+        showToast(t('toast_error_browse'), 'error');
+    }
 }
 
 function closeBrowser() {
@@ -1152,6 +1253,7 @@ function applySettingsToUI(rawSettings) {
     if ($('#reg-y')) $('#reg-y').value = captureSettings.region.y;
     if ($('#reg-w')) $('#reg-w').value = captureSettings.region.width;
     if ($('#reg-h')) $('#reg-h').value = captureSettings.region.height;
+    if ($('#toggle-feature-sound')) $('#toggle-feature-sound').checked = captureSettings.sound_enabled;
 
     if ($('#capture-interval-range')) $('#capture-interval-range').value = captureSettings.interval_sec;
     if ($('#capture-interval')) $('#capture-interval').value = captureSettings.interval_sec;
@@ -1343,8 +1445,8 @@ async function requestCapturePermissions(prompt = true) {
 // ── Screen Overlay Picker (Mode 1) & Preview Screen (Mode 2) ────────
 
 async function pickOverlay(target = 'region') {
-    const btn = $('#btn-pick-region-overlay');
-    if (btn) btn.disabled = true;
+    const shortcutInput = $('#overlay-shortcut-input');
+    if (shortcutInput) shortcutInput.disabled = true;
     try {
         const res = await API.pickOverlay(target);
         if (res.ok) {
@@ -1357,6 +1459,7 @@ async function pickOverlay(target = 'region') {
                 applySettingsToUI(captureSettings);
             }
             showToast(t('toast_overlay_region_set'), 'success');
+            await capturePreviewScreen(0.1);
         } else if (res.cancelled) {
             showToast(escapeAttr(res.message || t('toast_overlay_cancelled')), 'info');
         } else {
@@ -1365,7 +1468,7 @@ async function pickOverlay(target = 'region') {
     } catch (err) {
         showToast(t('toast_overlay_error'), 'error');
     } finally {
-        if (btn) btn.disabled = false;
+        if (shortcutInput) shortcutInput.disabled = false;
     }
 }
 
@@ -1601,6 +1704,7 @@ function initCaptureCanvas() {
         if ($('#reg-y')) $('#reg-y').value = captureSettings.region.y;
         if ($('#reg-w')) $('#reg-w').value = captureSettings.region.width;
         if ($('#reg-h')) $('#reg-h').value = captureSettings.region.height;
+    if ($('#toggle-feature-sound')) $('#toggle-feature-sound').checked = captureSettings.sound_enabled;
         updateCanvasCoordSummary();
         redrawCaptureCanvas();
     });
@@ -1621,6 +1725,7 @@ function initCaptureCanvas() {
                 if ($('#reg-y')) $('#reg-y').value = captureSettings.region.y;
                 if ($('#reg-w')) $('#reg-w').value = captureSettings.region.width;
                 if ($('#reg-h')) $('#reg-h').value = captureSettings.region.height;
+    if ($('#toggle-feature-sound')) $('#toggle-feature-sound').checked = captureSettings.sound_enabled;
                 updateCanvasCoordSummary();
                 redrawCaptureCanvas();
             }
@@ -1860,6 +1965,254 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// ── Feature Toggles & On-Device AFM Summarization ───────────────────
+
+const FEATURE_TOGGLES_STORAGE_KEY = 'app_feature_toggles';
+let featureToggles = {
+    afm_enabled: true,
+    notes_enabled: true,
+    auto_capture_enabled: true,
+};
+
+function loadFeatureToggles() {
+    try {
+        const raw = localStorage.getItem(FEATURE_TOGGLES_STORAGE_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                featureToggles = {
+                    afm_enabled: parsed.afm_enabled !== undefined ? Boolean(parsed.afm_enabled) : true,
+                    notes_enabled: parsed.notes_enabled !== undefined ? Boolean(parsed.notes_enabled) : true,
+                    auto_capture_enabled: parsed.auto_capture_enabled !== undefined ? Boolean(parsed.auto_capture_enabled) : true,
+                };
+            }
+        }
+    } catch (err) {
+        // Use defaults
+    }
+    applyFeatureToggles();
+}
+
+function saveFeatureToggles() {
+    try {
+        localStorage.setItem(FEATURE_TOGGLES_STORAGE_KEY, JSON.stringify(featureToggles));
+    } catch (err) {
+        // Non-fatal
+    }
+}
+
+function applyFeatureToggles() {
+    const toggleAfm = $('#toggle-feature-afm');
+    const toggleNotes = $('#toggle-feature-notes');
+    const toggleCapture = $('#toggle-feature-capture');
+
+    if (toggleAfm) toggleAfm.checked = featureToggles.afm_enabled;
+    if (toggleNotes) toggleNotes.checked = featureToggles.notes_enabled;
+    if (toggleCapture) toggleCapture.checked = featureToggles.auto_capture_enabled;
+
+    const btnAfm = $('#btn-afm-summarize');
+    const btnAfmSingle = $('#btn-afm-summarize-single');
+    if (btnAfm) btnAfm.style.display = featureToggles.afm_enabled ? '' : 'none';
+    if (btnAfmSingle) btnAfmSingle.style.display = featureToggles.afm_enabled ? '' : 'none';
+
+    const notesSection = document.querySelector('.section-notes');
+    if (notesSection) notesSection.style.display = featureToggles.notes_enabled ? '' : 'none';
+
+    const tabCaptureBtn = $('#tab-btn-capture');
+    if (tabCaptureBtn) tabCaptureBtn.style.display = featureToggles.auto_capture_enabled ? '' : 'none';
+    if (!featureToggles.auto_capture_enabled && activeTab === 'capture') {
+        switchTab('indexing');
+    }
+}
+
+async function onFeatureToggleChange(key, checked) {
+    if (key === 'sound_enabled') {
+        const capSoundToggle = $('#capture-sound-toggle');
+        if (capSoundToggle) capSoundToggle.checked = Boolean(checked);
+        captureSettings.sound_enabled = Boolean(checked);
+        await saveCaptureSettingsFromUI();
+        return;
+    }
+
+    if (key in featureToggles) {
+        featureToggles[key] = Boolean(checked);
+        saveFeatureToggles();
+        applyFeatureToggles();
+    }
+}
+
+async function refreshAfmStatus() {
+    const badge = $('#afm-availability-badge');
+    if (!badge) return;
+    badge.className = 'afm-status-badge';
+    badge.textContent = t('afm_status_checking');
+    try {
+        const res = await API.getAfmStatus();
+        if (res.ok && res.available) {
+            badge.className = 'afm-status-badge available';
+            badge.textContent = t('afm_status_available');
+        } else {
+            badge.className = 'afm-status-badge unavailable';
+            badge.textContent = t('afm_status_unavailable', { reason: res.reason || 'unavailable' });
+        }
+    } catch (err) {
+        badge.className = 'afm-status-badge unavailable';
+        badge.textContent = t('afm_status_unavailable', { reason: 'error' });
+    }
+}
+
+async function runAfmSummarize(filenames = null, btnSelector = '#btn-afm-summarize', labelKey = 'afm_summarize') {
+    if (!currentFiles.length) {
+        showToast(t('toast_afm_no_files'), 'warning');
+        return;
+    }
+
+    const btn = $(btnSelector);
+    const prevHTML = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner"></span> ${escapeAttr(t('afm_summarizing'))}`;
+    }
+
+    try {
+        const res = await API.summarizeAFM(filenames);
+        if (res.ok && res.summary) {
+            const notesEl = $('#notes-input');
+            if (notesEl) {
+                const existing = notesEl.value.trim();
+                notesEl.value = existing ? `${existing}\n\n${res.summary}` : res.summary;
+                saveNotes();
+            }
+            if (!featureToggles.notes_enabled) {
+                featureToggles.notes_enabled = true;
+                saveFeatureToggles();
+                applyFeatureToggles();
+            }
+            showToast(escapeAttr(res.message), 'success');
+        } else {
+            showToast(escapeAttr(res.message || t('toast_afm_error')), 'error');
+        }
+    } catch (err) {
+        showToast(t('toast_afm_error'), 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = prevHTML || `<span data-i18n="${labelKey}">${escapeAttr(t(labelKey))}</span>`;
+        }
+    }
+}
+
+function summarizeWithAFM() {
+    return runAfmSummarize(null, '#btn-afm-summarize', 'afm_summarize');
+}
+
+function summarizeCurrentImageWithAFM() {
+    if (currentImageIndex < 0 || currentImageIndex >= currentFiles.length) {
+        showToast(t('toast_afm_no_files'), 'warning');
+        return;
+    }
+    const targetName = currentFiles[currentImageIndex].name;
+    return runAfmSummarize([targetName], '#btn-afm-summarize-single', 'afm_summarize_one');
+}
+
+const OVERLAY_SHORTCUT_STORAGE_KEY = 'overlay_picker_shortcut';
+let overlayShortcut = { ctrl: true, shift: true, alt: false, meta: false, code: 'KeyR', key: 'R' };
+let isRecordingOverlayShortcut = false;
+
+function formatOverlayShortcut(sc) {
+    if (!sc || !sc.code) return '⌃⇧R';
+    let prefix = '';
+    if (sc.ctrl) prefix += '⌃';
+    if (sc.alt) prefix += '⌥';
+    if (sc.shift) prefix += '⇧';
+    if (sc.meta) prefix += '⌘';
+    const label = sc.key && sc.key.length === 1 ? sc.key.toUpperCase() : (sc.key || sc.code);
+    return `${prefix}${label}`;
+}
+
+function loadOverlayShortcut() {
+    try {
+        const raw = localStorage.getItem(OVERLAY_SHORTCUT_STORAGE_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.code) overlayShortcut = parsed;
+        }
+    } catch (err) {
+        // Use default
+    }
+    const input = $('#overlay-shortcut-input');
+    if (input) input.value = formatOverlayShortcut(overlayShortcut);
+}
+
+function initOverlayShortcutRecorder() {
+    const input = $('#overlay-shortcut-input');
+    if (!input) return;
+    loadOverlayShortcut();
+
+    const startRecording = () => {
+        isRecordingOverlayShortcut = true;
+        input.classList.add('recording');
+        input.value = t('overlay_shortcut_listening');
+    };
+    const stopRecording = () => {
+        if (!isRecordingOverlayShortcut) return;
+        isRecordingOverlayShortcut = false;
+        input.classList.remove('recording');
+        input.value = formatOverlayShortcut(overlayShortcut);
+    };
+
+    input.addEventListener('focus', startRecording);
+    input.addEventListener('click', startRecording);
+    input.addEventListener('blur', stopRecording);
+
+    window.addEventListener('keydown', (e) => {
+        if (isRecordingOverlayShortcut) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.key === 'Escape') {
+                stopRecording();
+                input.blur();
+                return;
+            }
+            if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
+                return;
+            }
+            overlayShortcut = {
+                ctrl: e.ctrlKey,
+                shift: e.shiftKey,
+                alt: e.altKey,
+                meta: e.metaKey,
+                code: e.code,
+                key: e.key,
+            };
+            try {
+                localStorage.setItem(OVERLAY_SHORTCUT_STORAGE_KEY, JSON.stringify(overlayShortcut));
+            } catch (err) {
+                // Non-fatal
+            }
+            stopRecording();
+            input.blur();
+            showToast(t('toast_overlay_shortcut_set', { shortcut: formatOverlayShortcut(overlayShortcut) }), 'success');
+            return;
+        }
+
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
+            return;
+        }
+        if (
+            e.code === overlayShortcut.code &&
+            Boolean(e.ctrlKey) === Boolean(overlayShortcut.ctrl) &&
+            Boolean(e.shiftKey) === Boolean(overlayShortcut.shift) &&
+            Boolean(e.altKey) === Boolean(overlayShortcut.alt) &&
+            Boolean(e.metaKey) === Boolean(overlayShortcut.meta)
+        ) {
+            e.preventDefault();
+            pickOverlay('region');
+        }
+    }, true);
+}
+
 // ── Theme Switching ─────────────────────────────────────────────────
 
 function toggleTheme() {
@@ -1909,7 +2262,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderEmptyState();
     initResizer();
     loadNotes();
+    loadFeatureToggles();
     initKeyRecorder();
+    initOverlayShortcutRecorder();
     initCaptureCanvas();
 
     const folderInputEl = $('#folder-input');

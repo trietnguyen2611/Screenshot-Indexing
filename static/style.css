@@ -2687,3 +2687,206 @@ tbody td {
 [data-theme="dark"] body {
     background: #0f1115;
 }
+
+/* ── Technical Toggle Switches (Redesigned) ────────────────────────── */
+
+.apple-switch,
+.tech-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 22px;
+    flex-shrink: 0;
+}
+
+.apple-switch input,
+.tech-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.apple-slider-round,
+.tech-switch-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: var(--color-surface-pearl);
+    border: 1px solid var(--color-hairline);
+    border-radius: 2px;
+    transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+
+.apple-slider-round::before,
+.tech-switch-slider::before {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 2px;
+    top: 2px;
+    background: var(--color-ink-muted-48);
+    border-radius: 1px;
+    box-shadow: none;
+    transition: transform 0.14s ease, background-color 0.14s ease;
+}
+
+.apple-switch input:checked + .apple-slider-round,
+.tech-switch input:checked + .tech-switch-slider {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.apple-switch input:checked + .apple-slider-round::before,
+.tech-switch input:checked + .tech-switch-slider::before {
+    transform: translateX(22px);
+    background: #ffffff;
+}
+
+.apple-switch input:focus-visible + .apple-slider-round,
+.tech-switch input:focus-visible + .tech-switch-slider {
+    outline: 2px solid var(--color-primary-focus);
+    outline-offset: 2px;
+}
+
+[data-theme="dark"] .apple-slider-round,
+[data-theme="dark"] .tech-switch-slider {
+    background: #1c1f26;
+    border-color: #353b47;
+}
+
+[data-theme="dark"] .apple-slider-round::before,
+[data-theme="dark"] .tech-switch-slider::before {
+    background: #8b949e;
+}
+
+[data-theme="dark"] .apple-switch input:checked + .apple-slider-round,
+[data-theme="dark"] .tech-switch input:checked + .tech-switch-slider {
+    background: var(--color-primary-on-dark);
+    border-color: var(--color-primary-on-dark);
+}
+
+/* ── Settings Tab & AFM Status ─────────────────────────────────────── */
+
+.section-header-action {
+    margin-left: auto;
+    height: 26px;
+    padding: 0 9px;
+    font-size: 11.5px;
+}
+
+.settings-container {
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: var(--space-lg) var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    overflow-y: auto;
+    height: 100%;
+}
+
+.settings-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--color-divider-soft);
+}
+
+.settings-row:last-child {
+    border-bottom: none;
+}
+
+[data-theme="dark"] .settings-row {
+    border-bottom-color: #242830;
+}
+
+.settings-row-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.settings-row-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-ink);
+}
+
+.settings-row-desc {
+    font-size: 12px;
+    color: var(--color-ink-muted-48);
+    line-height: 1.4;
+}
+
+.settings-row-control {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    flex-shrink: 0;
+}
+
+.afm-status-badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 2px;
+    border: 1px solid var(--color-hairline);
+    background: var(--color-surface-pearl);
+    color: var(--color-ink-muted-48);
+}
+
+.afm-status-badge.available {
+    border-color: rgba(22, 163, 74, 0.35);
+    background: rgba(22, 163, 74, 0.1);
+    color: #15803d;
+}
+
+.afm-status-badge.unavailable {
+    border-color: rgba(217, 119, 6, 0.35);
+    background: rgba(217, 119, 6, 0.1);
+    color: #b45309;
+}
+
+[data-theme="dark"] .afm-status-badge {
+    border-color: #353b47;
+    background: #1c1f26;
+}
+
+[data-theme="dark"] .afm-status-badge.available {
+    border-color: rgba(48, 209, 88, 0.35);
+    background: rgba(48, 209, 88, 0.14);
+    color: #30d158;
+}
+
+[data-theme="dark"] .afm-status-badge.unavailable {
+    border-color: rgba(255, 159, 10, 0.35);
+    background: rgba(255, 159, 10, 0.14);
+    color: #ff9f0a;
+}
+
+.empty-state-compact {
+    gap: var(--space-sm);
+    padding: var(--space-lg);
+}
+
+.empty-state-compact .empty-state-icon {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 0;
+}
+
+.capture-canvas-footer {
+    min-height: 28px;
+    padding: 4px 10px;
+}

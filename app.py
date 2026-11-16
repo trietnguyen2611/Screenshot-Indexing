@@ -1,7 +1,8 @@
 import atexit
+import json
 import os
 import re
-import json
+import subprocess
 import sys
 import time
 import tempfile
@@ -15,6 +16,11 @@ if "--overlay-picker" in sys.argv:
 
 from flask import Flask, render_template, jsonify, request, send_from_directory
 
+from services.afm_summarizer import (
+    AFMSummarizerError,
+    check_afm_availability,
+    summarize_with_afm,
+)
 from services.config_store import load_config, reset_config, save_config
 from services.macos_capture import (
     capture_controller,
@@ -25,7 +31,7 @@ from services.macos_input import resolve_key_code
 from services.macos_overlay import pick_screen_overlay
 from services.macos_permissions import check_permissions
 
-VERSION = os.environ.get("APP_VERSION", "1.1").lstrip("v")
+VERSION = os.environ.get("APP_VERSION", "1.0.1").lstrip("v")
 
 if getattr(sys, 'frozen', False):
     if sys.platform == 'darwin':
@@ -61,6 +67,9 @@ def get_msg(key, lang):
         "permission_denied_capture": {"vi": "Thiếu quyền Ghi màn hình (Screen Recording) trên macOS", "en": "Screen Recording permission is required on macOS"},
         "accessibility_warning": {"vi": "Vui lòng cấp quyền Trợ năng (Accessibility) trong Cài đặt hệ thống để tự động lật trang hoạt động", "en": "Please grant Accessibility permission in System Settings for Auto Page-Turn to work"},
         "file_not_found": {"vi": "Không tìm thấy tệp ảnh", "en": "Image file not found"},
+        "afm_summarize_success": {"vi": "Đã tóm tắt {count} ảnh vào Ghi chú bằng Apple Foundation Model", "en": "Summarized {count} screenshots into Notes with Apple Foundation Model"},
+        "afm_unavailable": {"vi": "Apple Foundation Model chưa sẵn sàng trên máy này", "en": "Apple Foundation Model is not available on this Mac"},
+        "afm_failed": {"vi": "Tóm tắt AFM thất bại", "en": "AFM summarization failed"},
     }
     entry = msgs.get(key, {})
     return entry.get(lang, entry.get("en"))
@@ -147,6 +156,43 @@ def browse_directory():
         })
     except PermissionError:
         return jsonify({"ok": False, "message": get_msg("no_permission", data.get("lang", "en"))})
+
+
+@app.route("/api/browse-native", methods=["POST"])
+def browse_native_directory():
+    """Open the native macOS Finder folder chooser dialog and return the selected POSIX path."""
+    data = request.get_json(silent=True) or {}
+    lang = data.get("lang", "en")
+    initial_path = (data.get("path") or "").strip()
+    prompt_text = "Chọn thư mục" if lang == "vi" else "Select Folder"
+
+    if initial_path and os.path.isdir(initial_path):
+        escaped_path = initial_path.replace("\\", "\\\\").replace('"', '\\"')
+        script = f'POSIX path of (choose folder with prompt "{prompt_text}" default location POSIX file "{escaped_path}")'
+    else:
+        script = f'POSIX path of (choose folder with prompt "{prompt_text}")'
+
+    try:
+        proc = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return jsonify({"ok": False, "message": f"{get_msg('error_prefix', lang)}: {exc}"})
+
+    if proc.returncode != 0:
+        stderr_lower = (proc.stderr or "").lower()
+        if "-128" in stderr_lower or "user canceled" in stderr_lower or "user cancelled" in stderr_lower:
+            return jsonify({"ok": True, "cancelled": True})
+        return jsonify({"ok": False, "message": f"{get_msg('error_prefix', lang)}: {(proc.stderr or '').strip() or 'Dialog failed'}"})
+
+    selected = (proc.stdout or "").strip()
+    if len(selected) > 1 and selected.endswith("/"):
+        selected = selected[:-1]
+    return jsonify({"ok": True, "cancelled": False, "path": selected})
 
 
 @app.route("/api/scan", methods=["POST"])
@@ -574,6 +620,64 @@ def get_capture_latest_image():
         return get_msg("file_not_found", lang), 404
 
     return send_from_directory(folder, filename, max_age=0)
+
+
+@app.route("/api/afm/status", methods=["GET"])
+def afm_status():
+    """Return on-device Apple Foundation Model availability status."""
+    return jsonify({"ok": True, **check_afm_availability()})
+
+
+@app.route("/api/afm/summarize", methods=["POST"])
+def afm_summarize():
+    """Summarize scanned screenshots into Markdown notes using Vision OCR + on-device AFM."""
+    data = request.get_json(silent=True) or {}
+    lang = data.get("lang", "en")
+    folder = state.get("folder_path", "")
+    files = list(state.get("files") or [])
+
+    if not files:
+        return jsonify({"ok": False, "message": get_msg("no_files", lang)})
+    if not folder or not os.path.isdir(folder):
+        return jsonify({"ok": False, "message": get_msg("folder_not_exist", lang)})
+
+    requested_files = data.get("filenames")
+    if isinstance(requested_files, list) and requested_files:
+        allowed = set(files)
+        target_files = [f for f in requested_files if isinstance(f, str) and f in allowed]
+    else:
+        target_files = files
+
+    if not target_files:
+        return jsonify({"ok": False, "message": get_msg("no_files", lang)})
+
+    try:
+        summary, count = summarize_with_afm(folder=folder, filenames=target_files, lang=lang)
+    except AFMSummarizerError as exc:
+        if exc.code in (
+            "device_not_eligible",
+            "apple_intelligence_not_enabled",
+            "model_not_ready",
+            "helper_missing",
+            "unavailable",
+        ):
+            return jsonify({
+                "ok": False,
+                "code": exc.code,
+                "message": f"{get_msg('afm_unavailable', lang)} ({exc.code})",
+            })
+        return jsonify({
+            "ok": False,
+            "code": exc.code,
+            "message": f"{get_msg('afm_failed', lang)}: {exc.message}",
+        })
+
+    return jsonify({
+        "ok": True,
+        "summary": summary,
+        "count": count,
+        "message": get_msg("afm_summarize_success", lang).format(count=count),
+    })
 
 
 def cleanup_session():

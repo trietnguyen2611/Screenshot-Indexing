@@ -24,6 +24,10 @@
                     <span id="header-capture-dot" class="header-capture-dot" aria-hidden="true"></span>
                     <span data-i18n="tab_auto_capture">Auto Capture</span>
                 </button>
+                <button type="button" id="tab-btn-settings" class="header-tab" role="tab"
+                    aria-selected="false" aria-controls="view-settings" onclick="switchTab('settings')">
+                    <span data-i18n="tab_settings">Settings</span>
+                </button>
             </nav>
             <span class="app-version-badge">v{{ version | default('1.0.3') }}</span>
         </div>
@@ -182,6 +186,17 @@
                                 <polyline points="10 9 9 9 8 9" />
                             </svg>
                             <span class="section-title"><span data-i18n="notes">Notes</span></span>
+                            <button type="button" id="btn-afm-summarize" class="btn btn-secondary btn-compact section-header-action"
+                                onclick="summarizeWithAFM()" title="Summarize screenshots into notes using on-device Apple Foundation Model"
+                                data-i18n-title="afm_summarize_title">
+                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="4 7 4 4 20 4 20 7" />
+                                    <line x1="9" y1="20" x2="15" y2="20" />
+                                    <line x1="12" y1="4" x2="12" y2="20" />
+                                </svg>
+                                <span data-i18n="afm_summarize">AFM Summarize</span>
+                            </button>
                         </div>
                         <div class="card notes-card">
                             <textarea id="notes-input" class="notes-input" placeholder="Enter notes here..."
@@ -345,14 +360,14 @@
                                         <span data-i18n="btn_test_shot_2s">Test Shot in 2s</span>
                                     </button>
                                 </div>
-                                <button type="button" id="btn-pick-region-overlay" class="btn btn-secondary btn-full"
-                                    onclick="pickOverlay('region')">
-                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 2" />
-                                    </svg>
-                                    <span data-i18n="btn_pick_region_overlay">Screen Overlay Picker</span>
-                                </button>
+                                <label class="pt-field">
+                                    <span class="pt-field-label" data-i18n="overlay_shortcut_label">Region Picker Shortcut (click &amp; press)</span>
+                                    <input id="overlay-shortcut-input" type="text" class="key-recorder-input" readonly
+                                        value="⌃⇧R" placeholder="Click & press shortcut..."
+                                        data-i18n-placeholder="overlay_shortcut_placeholder"
+                                        title="Click here and press a key combination to trigger region picker"
+                                        data-i18n-title="overlay_shortcut_title">
+                                </label>
                             </div>
                         </div>
                     </section>
@@ -523,33 +538,127 @@
                     <div id="canvas-view-container" class="capture-stage-card">
                         <div id="capture-canvas-stage" class="capture-canvas-stage">
                             <canvas id="capture-canvas" style="display: none;"></canvas>
-                            <div id="canvas-empty-hint" class="empty-state">
+                            <div id="canvas-empty-hint" class="empty-state empty-state-compact">
                                 <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
                                     <line x1="8" y1="21" x2="16" y2="21" />
                                     <line x1="12" y1="17" x2="12" y2="21" />
                                 </svg>
-                                <div class="empty-state-title"><span data-i18n="canvas_empty_title">No screen preview yet</span></div>
-                                <div class="empty-state-text"><span data-i18n="canvas_empty_desc">Take a test shot to preview your screen and draw the capture region</span></div>
-                                <div class="canvas-empty-actions">
-                                    <button type="button" class="btn btn-primary" onclick="capturePreviewScreen(0.2)">
-                                        <span data-i18n="btn_test_shot_now">Test Shot Now</span>
-                                    </button>
-                                    <button type="button" class="btn btn-secondary" onclick="capturePreviewScreen(2.0)">
-                                        <span data-i18n="btn_test_shot_2s">Test Shot in 2s</span>
-                                    </button>
-                                </div>
+                                <div class="empty-state-title"><span data-i18n="canvas_empty_title">No preview</span></div>
+                                <button type="button" class="btn btn-primary btn-compact" onclick="capturePreviewScreen(0.2)">
+                                    <span data-i18n="btn_test_shot_now">Test Shot Now</span>
+                                </button>
                             </div>
                         </div>
                         <div class="capture-canvas-footer">
                             <span id="canvas-coord-summary" class="canvas-coord-summary">—</span>
-                            <span class="canvas-hint-text" data-i18n="canvas_drag_hint">Drag on the preview to set capture region</span>
                         </div>
                     </div>
 
                 </div>
 
+            </div>
+        </div>
+
+        <!-- TAB 3: SETTINGS -->
+        <div id="view-settings" class="tab-view" role="tabpanel" aria-labelledby="tab-btn-settings" style="display: none;">
+            <div class="settings-container">
+                <section class="section">
+                    <div class="section-header">
+                        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="4" width="16" height="16" rx="2" />
+                            <rect x="9" y="9" width="6" height="6" />
+                            <line x1="9" y1="1" x2="9" y2="4" />
+                            <line x1="15" y1="1" x2="15" y2="4" />
+                            <line x1="9" y1="20" x2="9" y2="23" />
+                            <line x1="15" y1="20" x2="15" y2="23" />
+                            <line x1="20" y1="9" x2="23" y2="9" />
+                            <line x1="20" y1="14" x2="23" y2="14" />
+                            <line x1="1" y1="9" x2="4" y2="9" />
+                            <line x1="1" y1="14" x2="4" y2="14" />
+                        </svg>
+                        <span class="section-title"><span data-i18n="settings_afm_section">On-Device AI Engine (Apple Silicon AFM)</span></span>
+                    </div>
+                    <div class="card settings-card">
+                        <div class="settings-row">
+                            <div class="settings-row-info">
+                                <div class="settings-row-title" data-i18n="settings_afm_status_title">Apple Foundation Model Status</div>
+                                <div class="settings-row-desc" data-i18n="settings_afm_status_desc">Runs locally via Vision OCR + FoundationModels.framework without cloud API keys.</div>
+                            </div>
+                            <div class="settings-row-control">
+                                <span id="afm-availability-badge" class="afm-status-badge" data-i18n="afm_status_checking">Checking...</span>
+                                <button type="button" id="btn-afm-recheck" class="btn btn-secondary btn-compact" onclick="refreshAfmStatus()">
+                                    <span data-i18n="refresh">Refresh</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-header">
+                        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="4" y1="21" x2="4" y2="14" />
+                            <line x1="4" y1="10" x2="4" y2="3" />
+                            <line x1="12" y1="21" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12" y2="3" />
+                            <line x1="20" y1="21" x2="20" y2="16" />
+                            <line x1="20" y1="12" x2="20" y2="3" />
+                            <line x1="1" y1="14" x2="7" y2="14" />
+                            <line x1="9" y1="8" x2="15" y2="8" />
+                            <line x1="17" y1="16" x2="23" y2="16" />
+                        </svg>
+                        <span class="section-title"><span data-i18n="settings_features_section">Feature Toggles</span></span>
+                    </div>
+                    <div class="card settings-card">
+                        <div class="settings-row">
+                            <div class="settings-row-info">
+                                <div class="settings-row-title" data-i18n="feat_afm_title">AFM Note Summarization</div>
+                                <div class="settings-row-desc" data-i18n="feat_afm_desc">Show on-device AFM Summarize actions in Notes and Image Preview.</div>
+                            </div>
+                            <label class="apple-switch tech-switch">
+                                <input id="toggle-feature-afm" type="checkbox" checked onchange="onFeatureToggleChange('afm_enabled', this.checked)">
+                                <span class="apple-slider-round tech-switch-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row">
+                            <div class="settings-row-info">
+                                <div class="settings-row-title" data-i18n="feat_notes_title">Notes Panel</div>
+                                <div class="settings-row-desc" data-i18n="feat_notes_desc">Display the Markdown/text Notes workspace in Screenshot Indexing.</div>
+                            </div>
+                            <label class="apple-switch tech-switch">
+                                <input id="toggle-feature-notes" type="checkbox" checked onchange="onFeatureToggleChange('notes_enabled', this.checked)">
+                                <span class="apple-slider-round tech-switch-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row">
+                            <div class="settings-row-info">
+                                <div class="settings-row-title" data-i18n="feat_capture_title">Auto Capture Tab</div>
+                                <div class="settings-row-desc" data-i18n="feat_capture_desc">Enable timed screen region capture and auto page-turn controls.</div>
+                            </div>
+                            <label class="apple-switch tech-switch">
+                                <input id="toggle-feature-capture" type="checkbox" checked onchange="onFeatureToggleChange('auto_capture_enabled', this.checked)">
+                                <span class="apple-slider-round tech-switch-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row">
+                            <div class="settings-row-info">
+                                <div class="settings-row-title" data-i18n="feat_sound_title">macOS Shutter Sound</div>
+                                <div class="settings-row-desc" data-i18n="feat_sound_desc">Play native camera shutter sound on each captured screenshot.</div>
+                            </div>
+                            <label class="apple-switch tech-switch">
+                                <input id="toggle-feature-sound" type="checkbox" checked onchange="onFeatureToggleChange('sound_enabled', this.checked)">
+                                <span class="apple-slider-round tech-switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </section>
             </div>
         </div>
 
@@ -646,6 +755,11 @@
                     <h2 class="modal-title" id="image-modal-title"><span data-i18n="preview_image">Preview Image</span>
                     </h2>
                     <span class="image-counter-badge" id="image-modal-counter">1 / 1</span>
+                    <button type="button" id="btn-afm-summarize-single" class="btn btn-secondary btn-compact"
+                        onclick="summarizeCurrentImageWithAFM()" title="Summarize this image into Notes using AFM"
+                        data-i18n-title="afm_summarize_one_title">
+                        <span data-i18n="afm_summarize_one">AFM Summarize Image</span>
+                    </button>
                 </div>
                 <button type="button" class="modal-close" onclick="closeImageModal()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
