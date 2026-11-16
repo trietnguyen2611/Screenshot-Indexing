@@ -1,34 +1,21 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
+# Swift Package Manager & Xcode
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserdata/
+*.xcworkspace/xcuserdata/
 
-# Virtual Environment
-venv/
-.venv/
-env/
+# Build & Packaging Artifacts
+dist/
+release/
+dmg_root/
+*.dmg
+*.zip
 
-# IDE
+# macOS & Editors
+.DS_Store
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-.DS_Store
-
-# Flask
-instance/
-*.pyc
-
-# OS
-Thumbs.db
-
-# PyInstaller & Packages
-build/
-dist/
-release/
-dmg_root/
-*.spec
-*.dmg
-*.zip
