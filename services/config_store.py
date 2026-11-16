@@ -22,6 +22,7 @@ DEFAULT_CONFIG = {
         "click_y": 500,
     },
     "sound_enabled": True,
+    "gemini_api_key": "",
 }
 
 _CONFIG_LOCK = threading.Lock()
@@ -153,6 +154,9 @@ def normalize_config(raw: dict) -> dict:
         DEFAULT_CONFIG["sound_enabled"],
     )
 
+    raw_api_key = src.get("gemini_api_key", DEFAULT_CONFIG["gemini_api_key"])
+    cfg["gemini_api_key"] = raw_api_key.strip() if isinstance(raw_api_key, str) else ""
+
     return cfg
 
 
@@ -187,6 +191,7 @@ def save_config(new_data: dict) -> dict:
             "max_shots",
             "countdown_sec",
             "sound_enabled",
+            "gemini_api_key",
         ):
             if key in updates:
                 merged[key] = updates[key]
