@@ -384,9 +384,10 @@ struct AutoCaptureTabView: View {
 
     private var captureControlAndPermissionsCard: some View {
         let snapshot = viewModel.captureController.status
-        let counterText = snapshot.maxShots > 0
-            ? "\(snapshot.capturedCount) / \(snapshot.maxShots)"
-            : "\(snapshot.capturedCount) / ∞"
+        let targetLimit = snapshot.running ? snapshot.maxShots : viewModel.config.maxShots
+        let counterText = targetLimit > 0
+            ? "\(snapshot.capturedCount) / \(targetLimit)"
+            : "\(snapshot.capturedCount) / —"
 
         return GlassCard {
             VStack(alignment: .leading, spacing: 12) {

@@ -206,6 +206,7 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case toastOverlayCancelled = "toast_overlay_cancelled"
     case toastOverlayError = "toast_overlay_error"
     case toastCaptureFolderRequired = "toast_capture_folder_required"
+    case toastCaptureMaxShotsRequired = "toast_capture_max_shots_required"
     case toastCaptureInvalidRegion = "toast_capture_invalid_region"
     case toastCaptureStarted = "toast_capture_started"
     case toastCaptureStopped = "toast_capture_stopped"
@@ -353,7 +354,7 @@ public enum L10n {
         case .captureMaxShots:
             return ("Shot Limit", "Giới hạn số ảnh")
         case .captureMaxShotsPlaceholder:
-            return ("0 = ∞", "0 = ∞")
+            return ("Required (≥ 1)", "Bắt buộc (≥ 1)")
         case .captureCountdown:
             return ("Countdown (0–10s)", "Đếm ngược (0–10s)")
         case .captureSoundLabel:
@@ -586,6 +587,8 @@ public enum L10n {
             return ("Error running screen overlay", "Lỗi khi mở lớp chọn màn hình")
         case .toastCaptureFolderRequired:
             return ("Please choose a save folder first", "Vui lòng chọn thư mục lưu ảnh trước")
+        case .toastCaptureMaxShotsRequired:
+            return ("Please enter the shot limit (at least 1)", "Vui lòng nhập giới hạn số ảnh (tối thiểu 1)")
         case .toastCaptureInvalidRegion:
             return ("Capture region width and height must be at least 10", "Chiều rộng và chiều cao vùng chụp phải tối thiểu 10")
         case .toastCaptureStarted:

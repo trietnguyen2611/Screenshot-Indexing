@@ -1603,6 +1603,10 @@ final class AppViewModel {
             showToast(t(.toastCaptureInvalidRegion), type: .warning)
             return
         }
+        guard config.maxShots > 0 else {
+            showToast(t(.toastCaptureMaxShotsRequired), type: .warning)
+            return
+        }
 
         refreshPermissions(prompt: false, showToastOnResult: false)
         saveConfig(showToastOnSave: false)
