@@ -815,6 +815,8 @@ final class AppViewModel {
     private var notesSaveTask: Task<Void, Never>?
     private var afmNotesTask: Task<Void, Never>?
     private var afmSingleImageTask: Task<Void, Never>?
+    private var permissionCheckTask: Task<Void, Never>?
+    private var appDidBecomeActiveObserver: NSObjectProtocol?
 
     init() {
         let loaded = ConfigStore.shared.load()
@@ -823,6 +825,21 @@ final class AppViewModel {
         self.afmStatus = AFMSummarizerService.shared.checkAvailability()
         if !loaded.saveFolder.isEmpty {
             self.indexingFolder = loaded.saveFolder
+        }
+        self.appDidBecomeActiveObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.refreshPermissions(prompt: false, showToastOnResult: false)
+            }
+        }
+    }
+
+    isolated deinit {
+        if let appDidBecomeActiveObserver {
+            NotificationCenter.default.removeObserver(appDidBecomeActiveObserver)
         }
     }
 
@@ -1448,9 +1465,31 @@ final class AppViewModel {
     }
 
     func refreshPermissions(prompt: Bool, showToastOnResult: Bool = true) {
-        permissions = PermissionsService.checkPermissions(prompt: prompt)
-        if showToastOnResult {
-            showToast(t(.toastPermissionsUpdated), type: .info)
+        permissionCheckTask?.cancel()
+        permissionCheckTask = Task { @MainActor [weak self] in
+            let updated = await PermissionsService.checkPermissionsLive(prompt: prompt)
+            guard let self, !Task.isCancelled else { return }
+
+            let wasAccessibilityGranted = self.permissions.accessibility
+            self.permissions = updated
+
+            if updated.accessibility, (!wasAccessibilityGranted || !GlobalHotkeyService.shared.isGlobalTapActive) {
+                if self.config.autoCaptureEnabled && !self.isRecordingOverlayShortcut {
+                    self.armGlobalOverlayHotkey()
+                } else {
+                    GlobalHotkeyService.shared.restartIfNeeded()
+                }
+            }
+
+            if prompt && (!updated.screenRecording || !updated.accessibility) {
+                PermissionsService.openFirstMissingSettings(for: updated)
+                if showToastOnResult {
+                    let key: L10nKey = !updated.screenRecording ? .toastScreenPermRequired : .toastAccessibilityNeeded
+                    self.showToast(self.t(key), type: .warning, duration: 4.5)
+                }
+            } else if showToastOnResult {
+                self.showToast(self.t(.toastPermissionsUpdated), type: .info)
+            }
         }
     }
 

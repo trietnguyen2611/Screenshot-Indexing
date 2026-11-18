@@ -782,4 +782,57 @@ final class ScreenshotIndexingTests: XCTestCase {
         XCTAssertNil(vm.pendingRenameRange)
         XCTAssertNil(vm.previewImageIndex)
     }
+
+    // MARK: - PermissionsService & GlobalHotkeyService
+
+    func testPermissionStatusEquatableAndOpenFirstMissingSettingsWhenAllGranted() {
+        let granted = PermissionStatus(screenRecording: true, accessibility: true)
+        let missingScreen = PermissionStatus(screenRecording: false, accessibility: true)
+        let missingAccessibility = PermissionStatus(screenRecording: true, accessibility: false)
+
+        XCTAssertEqual(granted, PermissionStatus(screenRecording: true, accessibility: true))
+        XCTAssertNotEqual(granted, missingScreen)
+        XCTAssertNotEqual(granted, missingAccessibility)
+
+        // When both permissions are granted, no System Settings pane should be opened.
+        XCTAssertFalse(PermissionsService.openFirstMissingSettings(for: granted))
+    }
+
+    func testPermissionsServiceSyncAndLiveChecksDoNotCrash() async {
+        let syncStatus = PermissionsService.checkPermissions(prompt: false)
+        let liveStatus = await PermissionsService.checkPermissionsLive(prompt: false)
+
+        XCTAssertEqual(liveStatus.accessibility, syncStatus.accessibility)
+        if syncStatus.screenRecording {
+            XCTAssertTrue(liveStatus.screenRecording)
+        }
+    }
+
+    @MainActor
+    func testGlobalHotkeyServiceRestartIfNeededAndLifecycle() {
+        let service = GlobalHotkeyService.shared
+        service.stop()
+        defer { service.stop() }
+
+        XCTAssertFalse(service.isGlobalTapActive)
+
+        // restartIfNeeded() should be a no-op when no shortcut/handler is active.
+        service.restartIfNeeded()
+        XCTAssertFalse(service.isGlobalTapActive)
+
+        // Starting and calling restartIfNeeded() repeatedly should be safe and idempotent.
+        service.start(shortcut: .default, handler: {})
+        let expectedTapActive = PermissionsService.checkPermissions(prompt: false).accessibility
+        XCTAssertEqual(service.isGlobalTapActive, expectedTapActive)
+
+        service.restartIfNeeded()
+        XCTAssertEqual(service.isGlobalTapActive, expectedTapActive)
+
+        service.start(shortcut: HotkeyShortcut(code: "KeyS", keycode: 1, ctrl: true, shift: true, alt: false, meta: false), handler: {})
+        service.updateShortcut(.default)
+        XCTAssertEqual(service.isGlobalTapActive, expectedTapActive)
+
+        service.stop()
+        XCTAssertFalse(service.isGlobalTapActive)
+    }
 }
