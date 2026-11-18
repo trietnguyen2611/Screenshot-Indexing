@@ -82,7 +82,7 @@ final class ScreenOverlayPickerController {
             window.ignoresMouseEvents = false
             window.acceptsMouseMovedEvents = true
             window.isReleasedWhenClosed = false
-            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
 
             let localRect = NSRect(origin: .zero, size: screenFrame.size)
             let initialLocalPoint = NSPoint(
@@ -109,7 +109,7 @@ final class ScreenOverlayPickerController {
                 return event
             }
 
-            NSApp.activate()
+            NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
             window.orderFrontRegardless()
             window.makeFirstResponder(view)

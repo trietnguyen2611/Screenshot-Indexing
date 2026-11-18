@@ -344,7 +344,7 @@ public enum L10n {
         case .btnTestShotNow:
             return ("Test Now", "Chụp thử")
         case .btnTestShot2s:
-            return ("Test 2s", "Sau 2s")
+            return ("Test Shot in 3s", "Chụp thử sau 3s")
         case .btnPickRegionOverlay:
             return ("Screen Overlay Picker", "Chọn vùng trên màn hình")
         case .captureTimerSound:

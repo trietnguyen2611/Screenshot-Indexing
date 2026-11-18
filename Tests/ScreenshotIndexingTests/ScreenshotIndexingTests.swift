@@ -821,16 +821,16 @@ final class ScreenshotIndexingTests: XCTestCase {
         XCTAssertFalse(service.isGlobalTapActive)
 
         // Starting and calling restartIfNeeded() repeatedly should be safe and idempotent.
+        // Carbon RegisterEventHotKey registers system-wide without requiring Accessibility permission.
         service.start(shortcut: .default, handler: {})
-        let expectedTapActive = PermissionsService.checkPermissions(prompt: false).accessibility
-        XCTAssertEqual(service.isGlobalTapActive, expectedTapActive)
+        XCTAssertTrue(service.isGlobalTapActive)
 
         service.restartIfNeeded()
-        XCTAssertEqual(service.isGlobalTapActive, expectedTapActive)
+        XCTAssertTrue(service.isGlobalTapActive)
 
         service.start(shortcut: HotkeyShortcut(code: "KeyS", keycode: 1, ctrl: true, shift: true, alt: false, meta: false), handler: {})
         service.updateShortcut(.default)
-        XCTAssertEqual(service.isGlobalTapActive, expectedTapActive)
+        XCTAssertTrue(service.isGlobalTapActive)
 
         service.stop()
         XCTAssertFalse(service.isGlobalTapActive)

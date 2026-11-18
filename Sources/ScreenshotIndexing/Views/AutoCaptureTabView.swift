@@ -164,7 +164,7 @@ struct AutoCaptureTabView: View {
                         isDisabled: !viewModel.permissions.screenRecording
                     ) {
                         commitAllDrafts()
-                        viewModel.takeScreenPreview(delaySec: 2.0)
+                        viewModel.takeScreenPreview(delaySec: 3.0)
                     }
                 }
 
@@ -571,9 +571,14 @@ struct AutoCaptureTabView: View {
                 .padding(.horizontal, 4)
                 .padding(.top, 2)
 
-                previewStage
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .glassInputSurface(cornerRadius: 18)
+                if viewModel.permissions.screenRecording, viewModel.previewResult != nil {
+                    previewStage
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    previewStage
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .glassInputSurface(cornerRadius: 18)
+                }
             }
         }
     }

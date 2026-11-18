@@ -1,17 +1,20 @@
 import AppKit
-@preconcurrency import CoreGraphics
+import Carbon.HIToolbox
 import Foundation
 
-/// Listens for a configurable system-wide and in-app hotkey using a `CGEventTap`
-/// (when Accessibility permission is granted) and an AppKit local monitor.
+/// Listens for a configurable system-wide and in-app hotkey using Carbon `RegisterEventHotKey`
+/// and an AppKit local monitor.
 @MainActor
 final class GlobalHotkeyService {
     static let shared = GlobalHotkeyService()
 
+    nonisolated private static let hotKeySignature: OSType = 0x5353_4958 // "SSIX"
+    nonisolated private static let hotKeyIDValue: UInt32 = 1
+
     private var activeShortcut: HotkeyShortcut?
     private var handler: (@MainActor () -> Void)?
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
+    private var eventHandlerRef: EventHandlerRef?
+    private var hotKeyRef: EventHotKeyRef?
     private var localMonitor: Any?
     private var lastTriggerUptime: TimeInterval = 0.0
 
@@ -19,45 +22,48 @@ final class GlobalHotkeyService {
 
     private init() {}
 
-    /// Whether the system-wide `CGEventTap` is currently installed and enabled.
+    /// Whether the system-wide Carbon global hotkey is currently registered.
     var isGlobalTapActive: Bool {
-        guard let eventTap else { return false }
-        return CGEvent.tapIsEnabled(tap: eventTap)
+        hotKeyRef != nil
     }
 
-    /// Start monitoring system-wide and local `.keyDown` events for `shortcut`.
-    /// Safe to call repeatedly: updates the active shortcut/handler and ensures monitors
-    /// and the `CGEventTap` are created or re-enabled without duplicating taps.
+    /// Start monitoring system-wide (Carbon) and local `.keyDown` events for `shortcut`.
+    /// Safe to call repeatedly: updates the active shortcut/handler and ensures the
+    /// local monitor, Carbon event handler, and registered hotkey are active without duplicating them.
     func start(shortcut: HotkeyShortcut, handler: @escaping @MainActor () -> Void) {
         self.activeShortcut = shortcut
         self.handler = handler
         installLocalMonitorIfNeeded()
-        installOrEnableEventTap()
+        installEventHandlerIfNeeded()
+        registerHotKey(for: shortcut)
     }
 
-    /// Re-attempt creating or re-enabling the `CGEventTap` if `start(shortcut:handler:)` is active
-    /// and the tap previously failed (e.g., before Accessibility permission was granted) or was disabled.
+    /// Re-attempt installing the event handler and registering the Carbon hotkey if
+    /// `start(shortcut:handler:)` is active and the hotkey is not currently registered.
     func restartIfNeeded() {
-        guard activeShortcut != nil, handler != nil else { return }
+        guard let activeShortcut, handler != nil else { return }
         installLocalMonitorIfNeeded()
-        installOrEnableEventTap()
+        installEventHandlerIfNeeded()
+        if hotKeyRef == nil {
+            registerHotKey(for: activeShortcut)
+        }
     }
 
-    /// Update the active hotkey combination without tearing down active monitors.
+    /// Update the active hotkey combination and re-register the Carbon global hotkey if active.
     func updateShortcut(_ shortcut: HotkeyShortcut) {
         activeShortcut = shortcut
+        if handler != nil {
+            installEventHandlerIfNeeded()
+            registerHotKey(for: shortcut)
+        }
     }
 
-    /// Stop both the `CGEventTap` and local keyboard monitor and release the callback.
+    /// Unregister the Carbon global hotkey, remove the event handler and local monitor, and clear state.
     func stop() {
-        if let runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-            self.runLoopSource = nil
-        }
-        if let eventTap {
-            CGEvent.tapEnable(tap: eventTap, enable: false)
-            CFMachPortInvalidate(eventTap)
-            self.eventTap = nil
+        unregisterHotKey()
+        if let eventHandlerRef {
+            RemoveEventHandler(eventHandlerRef)
+            self.eventHandlerRef = nil
         }
         if let localMonitor {
             NSEvent.removeMonitor(localMonitor)
@@ -67,7 +73,7 @@ final class GlobalHotkeyService {
         handler = nil
     }
 
-    // MARK: - Monitor & Tap Lifecycle
+    // MARK: - Local Monitor & Carbon HotKey Lifecycle
 
     private func installLocalMonitorIfNeeded() {
         guard localMonitor == nil else { return }
@@ -86,69 +92,99 @@ final class GlobalHotkeyService {
         }
     }
 
-    private func installOrEnableEventTap() {
-        if let eventTap {
-            if !CGEvent.tapIsEnabled(tap: eventTap) {
-                CGEvent.tapEnable(tap: eventTap, enable: true)
-            }
-            return
-        }
+    private func installEventHandlerIfNeeded() {
+        guard eventHandlerRef == nil else { return }
 
-        let eventMask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        var eventType = EventTypeSpec(
+            eventClass: OSType(kEventClassKeyboard),
+            eventKind: UInt32(kEventHotKeyPressed)
+        )
         let userInfo = Unmanaged.passUnretained(self).toOpaque()
+        var handlerRef: EventHandlerRef?
 
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: eventMask,
-            callback: { _, type, event, userInfo in
-                guard let userInfo else {
-                    return Unmanaged.passUnretained(event)
+        let status = InstallEventHandler(
+            GetApplicationEventTarget(),
+            { _, event, userInfo in
+                guard let event, let userInfo else {
+                    return OSStatus(eventNotHandledErr)
                 }
+
+                var hotKeyID = EventHotKeyID()
+                let paramStatus = GetEventParameter(
+                    event,
+                    EventParamName(kEventParamDirectObject),
+                    EventParamType(typeEventHotKeyID),
+                    nil,
+                    MemoryLayout<EventHotKeyID>.size,
+                    nil,
+                    &hotKeyID
+                )
+                guard paramStatus == noErr,
+                      hotKeyID.signature == GlobalHotkeyService.hotKeySignature,
+                      hotKeyID.id == GlobalHotkeyService.hotKeyIDValue else {
+                    return OSStatus(eventNotHandledErr)
+                }
+
                 return MainActor.assumeIsolated {
                     let service = Unmanaged<GlobalHotkeyService>.fromOpaque(userInfo).takeUnretainedValue()
-                    return service.handleEventTapCallback(type: type, event: event)
+                    service.handleCarbonHotKeyPressed()
+                    return noErr
                 }
             },
-            userInfo: userInfo
-        ) else {
-            // Accessibility permission is likely not granted yet; localMonitor remains active
-            // and restartIfNeeded() will retry once Accessibility is granted.
-            return
+            1,
+            &eventType,
+            userInfo,
+            &handlerRef
+        )
+
+        if status == noErr, let handlerRef {
+            self.eventHandlerRef = handlerRef
         }
-
-        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-
-        self.eventTap = tap
-        self.runLoopSource = source
     }
 
-    private func handleEventTapCallback(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if let eventTap {
-                CGEvent.tapEnable(tap: eventTap, enable: true)
-            }
-            return Unmanaged.passUnretained(event)
-        }
+    private func registerHotKey(for shortcut: HotkeyShortcut) {
+        unregisterHotKey()
 
-        guard type == .keyDown else {
-            return Unmanaged.passUnretained(event)
-        }
+        let keyCodeInt = InputSimulationService.macKeyCode(forWebCode: shortcut.code) ?? shortcut.keycode
+        guard keyCodeInt >= 0, keyCodeInt <= Int(UInt32.max) else { return }
 
-        let modifierFlags = Self.modifierFlags(from: event.flags)
-        if NSApp.isActive, shouldIgnoreForTextInput(modifierFlags: modifierFlags) {
-            return Unmanaged.passUnretained(event)
-        }
+        var modifiers: UInt32 = 0
+        if shortcut.ctrl { modifiers |= UInt32(controlKey) }
+        if shortcut.alt { modifiers |= UInt32(optionKey) }
+        if shortcut.shift { modifiers |= UInt32(shiftKey) }
+        if shortcut.meta { modifiers |= UInt32(cmdKey) }
 
-        let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
-        if processKeyEvent(keyCode: keyCode, modifierFlagsRaw: modifierFlags.rawValue) {
-            return nil
-        }
+        let hotKeyID = EventHotKeyID(
+            signature: Self.hotKeySignature,
+            id: Self.hotKeyIDValue
+        )
+        var ref: EventHotKeyRef?
+        let status = RegisterEventHotKey(
+            UInt32(keyCodeInt),
+            modifiers,
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &ref
+        )
 
-        return Unmanaged.passUnretained(event)
+        if status == noErr, let ref {
+            self.hotKeyRef = ref
+        } else {
+            self.hotKeyRef = nil
+        }
+    }
+
+    private func unregisterHotKey() {
+        if let hotKeyRef {
+            UnregisterEventHotKey(hotKeyRef)
+            self.hotKeyRef = nil
+        }
+    }
+
+    private func handleCarbonHotKeyPressed() {
+        guard activeShortcut != nil else { return }
+        triggerHandlerWithDebounce()
     }
 
     private func shouldIgnoreForTextInput(modifierFlags: NSEvent.ModifierFlags) -> Bool {
@@ -157,15 +193,6 @@ final class GlobalHotkeyService {
             && !flags.contains(.option)
             && !flags.contains(.command)
             && NSApp.keyWindow?.firstResponder is NSText
-    }
-
-    private static func modifierFlags(from cgFlags: CGEventFlags) -> NSEvent.ModifierFlags {
-        var flags: NSEvent.ModifierFlags = []
-        if cgFlags.contains(.maskControl) { flags.insert(.control) }
-        if cgFlags.contains(.maskShift) { flags.insert(.shift) }
-        if cgFlags.contains(.maskAlternate) { flags.insert(.option) }
-        if cgFlags.contains(.maskCommand) { flags.insert(.command) }
-        return flags
     }
 
     // MARK: - Private Matching & Debounce
@@ -177,14 +204,18 @@ final class GlobalHotkeyService {
             return false
         }
 
+        triggerHandlerWithDebounce()
+        return true
+    }
+
+    private func triggerHandlerWithDebounce() {
         let now = ProcessInfo.processInfo.systemUptime
         if now - lastTriggerUptime < debounceInterval {
-            return true
+            return
         }
 
         lastTriggerUptime = now
         handler?()
-        return true
     }
 
     private func matches(shortcut: HotkeyShortcut, keyCode: Int, modifierFlagsRaw: UInt) -> Bool {
