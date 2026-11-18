@@ -819,13 +819,12 @@ final class AppViewModel {
     private var appDidBecomeActiveObserver: NSObjectProtocol?
 
     init() {
-        let loaded = ConfigStore.shared.load()
+        var loaded = ConfigStore.shared.load()
+        loaded.saveFolder = ""
         self.config = loaded
+        self.indexingFolder = ""
         self.permissions = PermissionsService.checkPermissions(prompt: false)
         self.afmStatus = AFMSummarizerService.shared.checkAvailability()
-        if !loaded.saveFolder.isEmpty {
-            self.indexingFolder = loaded.saveFolder
-        }
         self.appDidBecomeActiveObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification,
             object: nil,
@@ -985,7 +984,12 @@ final class AppViewModel {
 
     func saveConfig(showToastOnSave: Bool = false) {
         do {
-            config = try ConfigStore.shared.save(config)
+            let currentSessionFolder = config.saveFolder
+            var toPersist = config
+            toPersist.saveFolder = ""
+            var saved = try ConfigStore.shared.save(toPersist)
+            saved.saveFolder = currentSessionFolder
+            config = saved
             if showToastOnSave {
                 showToast(t(.toastSettingsSaved), type: .success)
             }
