@@ -1,21 +1,24 @@
-# Swift Package Manager & Xcode
+# Swift & Xcode
 .build/
 .swiftpm/
 DerivedData/
 *.xcuserdata/
 *.xcworkspace/xcuserdata/
 
-# Build & Packaging Artifacts
+# Build & Package
 dist/
 release/
 dmg_root/
 *.dmg
 *.zip
 
-# macOS & Editors
+# macOS & Vscode
 .DS_Store
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# AI Agents
+.agents/

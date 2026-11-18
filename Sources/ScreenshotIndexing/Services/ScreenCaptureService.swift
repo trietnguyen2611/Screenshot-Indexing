@@ -163,7 +163,8 @@ enum ScreenCaptureHelper {
             )
         }.value
 
-        guard let image = NSImage(contentsOf: targetURL) else {
+        let data = try Data(contentsOf: targetURL)
+        guard let image = NSImage(data: data) else {
             throw ScreenCaptureError.captureFailed("Failed to decode preview screenshot.")
         }
 
@@ -195,7 +196,7 @@ enum ScreenCaptureHelper {
         guard !expandedFolder.isEmpty else {
             return .failure(ScreenCaptureError.missingSaveFolder)
         }
-        guard region.width > 0, region.height > 0 else {
+        guard region.width >= 10, region.height >= 10 else {
             return .failure(ScreenCaptureError.invalidRegion)
         }
 
@@ -449,6 +450,7 @@ final class CaptureController {
         let maxShots = max(0, config.maxShots)
         let soundEnabled = config.soundEnabled
         let pageTurn = config.pageTurn
+        let language = config.language
 
         let sessionID = UUID()
         activeSessionID = sessionID
@@ -478,6 +480,7 @@ final class CaptureController {
                 maxShots: maxShots,
                 soundEnabled: soundEnabled,
                 pageTurn: pageTurn,
+                language: language,
                 onShot: onShot
             )
         }
@@ -519,6 +522,7 @@ final class CaptureController {
         maxShots: Int,
         soundEnabled: Bool,
         pageTurn: PageTurnConfig,
+        language: AppLanguage,
         onShot: (@MainActor (String, String) -> Void)?
     ) async {
         do {
@@ -603,7 +607,7 @@ final class CaptureController {
                         targetPID = nextPID
                     }
                     if !turned && status.lastError == nil {
-                        status.lastError = "Auto page-turn blocked: grant Accessibility permission in System Settings"
+                        status.lastError = L10n.t(.accessibilityWarning, language)
                     }
                 }
 

@@ -309,6 +309,13 @@ private final class OverlayView: NSView {
         let minCocoaY = screenOrigin.y + minLocalY
         let maxCocoaY = screenOrigin.y + maxLocalY
 
+        if (maxCocoaX - minCocoaX) < 5.0 || (maxCocoaY - minCocoaY) < 5.0 {
+            self.dragStart = nil
+            self.dragCurrent = nil
+            needsDisplay = true
+            return
+        }
+
         // Convert Cocoa bottom-left origin coordinates into Quartz top-left origin coordinates.
         let quartzX = Int(minCocoaX.rounded())
         let quartzY = Int((primaryHeight - maxCocoaY).rounded())

@@ -334,7 +334,7 @@ enum InputSimulationService {
         return (keyName: fallbackName, keyCode: rawCode, display: fallbackName)
     }
 
-    /// Convert an AppKit `.keyDown` event into a `HotkeyShortcut`, requiring at least one modifier or function key.
+    /// Convert an AppKit `.keyDown` event into a `HotkeyShortcut`, requiring a primary modifier (`Ctrl`/`Option`/`Cmd`) or function key.
     static func shortcutMetadata(from event: NSEvent) -> HotkeyShortcut? {
         let rawCode = Int(event.keyCode)
         let flags = event.modifierFlags.intersection([.control, .shift, .option, .command])
@@ -343,9 +343,9 @@ enum InputSimulationService {
         let alt = flags.contains(.option)
         let meta = flags.contains(.command)
 
-        let hasModifier = ctrl || shift || alt || meta
+        let hasPrimaryModifier = ctrl || alt || meta
         let isFunctionKey = functionKeyCodes.contains(rawCode)
-        guard hasModifier || isFunctionKey else {
+        guard hasPrimaryModifier || isFunctionKey else {
             return nil
         }
 

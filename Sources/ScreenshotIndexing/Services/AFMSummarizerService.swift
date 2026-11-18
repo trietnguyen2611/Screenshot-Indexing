@@ -94,6 +94,13 @@ final class AFMSummarizerService: Sendable {
         guard processedCount > 0 else {
             throw AFMSummarizerError.noValidImages
         }
+        guard extracted.contains(where: { !$0.text.isEmpty }) else {
+            throw AFMSummarizerError.generationFailed(
+                lang == .vi
+                    ? "Không tìm thấy văn bản nào trong ảnh để tóm tắt."
+                    : "No readable text found in the screenshots to summarize."
+            )
+        }
 
         try Task.checkCancellation()
 

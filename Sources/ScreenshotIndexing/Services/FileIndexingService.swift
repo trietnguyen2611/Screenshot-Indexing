@@ -163,11 +163,12 @@ public enum FileIndexingService {
         }
 
         // Step 1: Move all targets to collision-free temporary names.
+        let batchToken = UUID().uuidString.lowercased()
         var tempPairs: [(oldName: String, tempName: String, newName: String)] = []
         tempPairs.reserveCapacity(count)
         do {
             for pair in renamePairs {
-                let tempName = "__temp_rename_\(pair.newName)"
+                let tempName = "__temp_rename_\(batchToken)_\(pair.newName)"
                 let oldURL = folderURL.appendingPathComponent(pair.oldName)
                 let tempURL = folderURL.appendingPathComponent(tempName)
                 try fm.moveItem(at: oldURL, to: tempURL)
@@ -202,6 +203,14 @@ public enum FileIndexingService {
                 try fm.moveItem(at: tempURL, to: newURL)
                 successCount += 1
             } catch {
+                // Best-effort rollback of any remaining temp files so they are not left orphaned.
+                for candidate in tempPairs.reversed() {
+                    let candidateTempURL = folderURL.appendingPathComponent(candidate.tempName)
+                    let candidateOldURL = folderURL.appendingPathComponent(candidate.oldName)
+                    if fm.fileExists(atPath: candidateTempURL.path), !fm.fileExists(atPath: candidateOldURL.path) {
+                        try? fm.moveItem(at: candidateTempURL, to: candidateOldURL)
+                    }
+                }
                 throw FileIndexingError.renameFailed(error.localizedDescription)
             }
         }

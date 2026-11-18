@@ -17,6 +17,11 @@ on:
         description: 'Manual Changelog / Release Notes (Markdown supported)'
         required: false
         default: ''
+      prerelease:
+        description: 'Mark release as pre-release'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -54,6 +59,12 @@ jobs:
           RAW_VERSION="${VERSION#v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "raw_version=${RAW_VERSION}" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ inputs.prerelease }}" = "true" ] || [ "$VERSION" = "v2.0.0" ] || [[ "$VERSION" =~ -(alpha|beta|rc) ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
           if [ -n "${{ inputs.changelog }}" ]; then
             {
@@ -130,7 +141,7 @@ jobs:
           files: |
             release/Screenshot-Indexing-${{ steps.get_version.outputs.version }}-macOS-arm64.dmg
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.get_version.outputs.prerelease == 'true' }}
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

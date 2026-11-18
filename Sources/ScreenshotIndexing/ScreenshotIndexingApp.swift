@@ -8,6 +8,19 @@ final class AppLifecycleDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        configureTransparentTitlebarWindows()
+        DispatchQueue.main.async { [weak self] in
+            self?.configureTransparentTitlebarWindows()
+        }
+    }
+
+    private func configureTransparentTitlebarWindows() {
+        for window in NSApp.windows {
+            window.titlebarAppearsTransparent = true
+            if !window.styleMask.contains(.fullSizeContentView) {
+                window.styleMask.insert(.fullSizeContentView)
+            }
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

@@ -11,28 +11,20 @@ struct IndexingTabView: View {
     @State private var hoveredRowID: String?
 
     var body: some View {
-        @Bindable var vm = viewModel
-
         let previewPresented = Binding<Bool>(
             get: { viewModel.previewImageIndex != nil },
             set: { if !$0 { viewModel.closePreview() } }
         )
 
-        GlassEffectContainer(spacing: GlassMetrics.containerSpacing) {
-            ResizableHorizontalSplit(
-                sidebarWidth: $sidebarWidth,
-                minSidebarWidth: 360,
-                maxSidebarWidth: 520,
-                minDetailWidth: 440
-            ) {
-                sidebarColumn
-            } detail: {
-                fileListPanel
-            }
-        }
-        .sheet(isPresented: $vm.showConfirmRenameSheet) {
-            ConfirmRenameSheetView()
-                .environment(viewModel)
+        ResizableHorizontalSplit(
+            sidebarWidth: $sidebarWidth,
+            minSidebarWidth: 360,
+            maxSidebarWidth: 520,
+            minDetailWidth: 440
+        ) {
+            sidebarColumn
+        } detail: {
+            fileListPanel
         }
         .sheet(isPresented: previewPresented) {
             ImagePreviewSheetView()
@@ -87,9 +79,7 @@ struct IndexingTabView: View {
 
                     if !viewModel.indexingFolder.isEmpty {
                         Button {
-                            viewModel.indexingFolder = ""
-                            viewModel.files = []
-                            viewModel.indexingStatusText = ""
+                            viewModel.clearIndexingFolder()
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 13))
@@ -143,6 +133,12 @@ struct IndexingTabView: View {
                         .foregroundStyle(.secondary)
                         .padding(.top, 16)
                     rangeNumericField(label: viewModel.t(.to), text: $vm.rangeEndText)
+                }
+                .onChange(of: vm.rangeStartText) { _, _ in
+                    viewModel.syncLivePreviewRange()
+                }
+                .onChange(of: vm.rangeEndText) { _, _ in
+                    viewModel.syncLivePreviewRange()
                 }
 
                 HStack(spacing: 10) {
@@ -219,17 +215,14 @@ struct IndexingTabView: View {
                     }
                 }
 
-                if viewModel.isSummarizingNotes {
-                    AIStreamingIndicator(label: viewModel.t(.afmSummarizing))
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                }
-
                 ZStack(alignment: .topLeading) {
                     TextEditor(text: notesBinding)
                         .font(.system(size: 13))
                         .scrollContentBackground(.hidden)
+                        .scrollIndicators(.hidden)
                         .padding(8)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .animation(.easeOut(duration: 0.18), value: viewModel.config.notesText)
 
                     if viewModel.config.notesText.isEmpty {
                         Text(viewModel.t(.notesPlaceholder))
@@ -242,9 +235,14 @@ struct IndexingTabView: View {
                 }
                 .frame(minHeight: 150, maxHeight: .infinity)
                 .glassInputSurface(isHighlighted: viewModel.isSummarizingNotes)
+                .appleIntelligenceGlowBorder(
+                    isActive: viewModel.isSummarizingNotes,
+                    cornerRadius: GlassMetrics.inputCornerRadius
+                )
             }
         }
         .frame(maxHeight: .infinity)
+        .animation(GlassMetrics.springAnimation, value: viewModel.isSummarizingNotes)
     }
 
     // MARK: - Right Panel: File List
@@ -265,11 +263,11 @@ struct IndexingTabView: View {
 
                     Spacer()
 
-                    if !viewModel.indexingStatusText.isEmpty {
+                    if viewModel.indexingStatusIsError, !viewModel.indexingStatusText.isEmpty {
                         GlassBadge(
                             text: viewModel.indexingStatusText,
-                            tint: viewModel.indexingStatusIsError ? .red.opacity(0.22) : nil,
-                            foreground: viewModel.indexingStatusIsError ? .red : .secondary
+                            tint: .red.opacity(0.22),
+                            foreground: .red
                         )
                     }
                 }
@@ -295,36 +293,32 @@ struct IndexingTabView: View {
     }
 
     private var emptyStateView: some View {
-        VStack(spacing: 14) {
+        let isDropActive = isListDropTargeted || isFolderDropTargeted
+
+        return VStack(spacing: 14) {
             Spacer()
 
             ZStack {
                 Circle()
-                    .fill(Color.accentColor.opacity(isListDropTargeted || isFolderDropTargeted ? 0.18 : 0.09))
+                    .fill(Color.accentColor.opacity(isDropActive ? 0.18 : 0.09))
                     .frame(width: 72, height: 72)
 
-                Image(systemName: isListDropTargeted || isFolderDropTargeted ? "folder.badge.plus" : "photo.on.rectangle.angled")
+                Image(systemName: isDropActive ? "folder.badge.plus" : "photo.on.rectangle.angled")
                     .font(.system(size: 30, weight: .light))
-                    .foregroundStyle(isListDropTargeted || isFolderDropTargeted ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(isDropActive ? Color.accentColor : Color.secondary)
             }
 
-            VStack(spacing: 6) {
-                Text(viewModel.t(.emptyTitle))
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.primary)
+            Text(viewModel.t(.emptyTitle))
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.primary)
 
-                Text(viewModel.t(.emptyDesc))
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 340)
+            if isDropActive {
+                GlassBadge(
+                    text: viewModel.t(.dropFolderActive),
+                    tint: .accentColor.opacity(0.24),
+                    foreground: .primary
+                )
             }
-
-            GlassBadge(
-                text: viewModel.t(isListDropTargeted || isFolderDropTargeted ? .dropFolderActive : .dropFolderHint),
-                tint: (isListDropTargeted || isFolderDropTargeted) ? .accentColor.opacity(0.24) : nil,
-                foreground: (isListDropTargeted || isFolderDropTargeted) ? .primary : .secondary
-            )
 
             Spacer()
         }
@@ -355,6 +349,8 @@ struct IndexingTabView: View {
                 }
                 .padding(.bottom, 4)
             }
+            .scrollIndicators(.hidden)
+            .scrollTopFade(height: 32)
         }
     }
 

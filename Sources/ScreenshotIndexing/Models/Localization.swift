@@ -149,6 +149,7 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case settingsAppearanceSection = "settings_appearance_section"
     case settingsLanguageLabel = "settings_language_label"
     case settingsThemeLabel = "settings_theme_label"
+    case settingsVersionLabel = "settings_version_label"
     case themeDark = "theme_dark"
     case themeLight = "theme_light"
     case themeSystem = "theme_system"
@@ -242,9 +243,9 @@ public enum L10n {
         case .desc:
             return ("Batch rename screenshot files chronologically", "Đổi tên đồng loạt file screenshot theo thứ tự thời gian")
         case .tabIndexing:
-            return ("Screenshot Indexing", "Screenshot Indexing")
+            return ("Indexing", "Đánh số")
         case .tabAutoCapture:
-            return ("Auto Capture", "Chụp tự động")
+            return ("Auto Capture", "Tự động chụp")
         case .tabSettings:
             return ("Settings", "Cài đặt")
         case .resizerTitle:
@@ -261,7 +262,7 @@ public enum L10n {
         case .refresh:
             return ("Refresh", "Làm mới")
         case .range:
-            return ("Numbering Range", "Phạm vi đánh số")
+            return ("Range", "Phạm vi")
         case .from:
             return ("From", "Từ")
         case .to:
@@ -275,7 +276,7 @@ public enum L10n {
         case .notesPlaceholder:
             return ("Enter notes here...", "Nhập ghi chú tại đây...")
         case .fileList:
-            return ("Screenshot File List", "Danh sách file screenshot")
+            return ("Screenshots", "Ảnh chụp")
         case .originalName:
             return ("Original Name", "Tên gốc")
         case .newName:
@@ -334,21 +335,21 @@ public enum L10n {
             return ("Close", "Đóng")
 
         case .captureSaveFolder:
-            return ("Save Folder", "Thư mục lưu ảnh")
+            return ("Save Folder", "Thư mục lưu")
         case .captureFolderPlaceholder:
             return ("Enter save folder path...", "Nhập đường dẫn lưu ảnh chụp...")
         case .captureRegion:
-            return ("Capture Region", "Vùng chụp cố định")
+            return ("Region", "Vùng chụp")
         case .btnTestShotNow:
-            return ("Test Shot Now", "Chụp thử ngay")
+            return ("Test Now", "Chụp thử")
         case .btnTestShot2s:
-            return ("Test Shot in 2s", "Chụp thử sau 2s")
+            return ("Test 2s", "Sau 2s")
         case .btnPickRegionOverlay:
             return ("Screen Overlay Picker", "Chọn vùng trên màn hình")
         case .captureTimerSound:
-            return ("Timer & Shutter", "Hẹn giờ & Âm thanh")
+            return ("Timer & Sound", "Hẹn giờ & Âm")
         case .captureInterval:
-            return ("Interval (1–10s)", "Chu kỳ chụp (1–10s)")
+            return ("Interval", "Chu kỳ")
         case .captureMaxShots:
             return ("Shot Limit", "Giới hạn số ảnh")
         case .captureMaxShotsPlaceholder:
@@ -356,11 +357,11 @@ public enum L10n {
         case .captureCountdown:
             return ("Countdown (0–10s)", "Đếm ngược (0–10s)")
         case .captureSoundLabel:
-            return ("macOS Shutter Sound", "Âm thanh chụp macOS")
+            return ("Shutter Sound", "Âm chụp")
         case .pageTurnTitle:
             return ("Auto Page-Turn", "Tự động lật trang")
         case .pageTurnEnable:
-            return ("Enable auto page-turn", "Bật tự động lật trang")
+            return ("Auto Page-Turn", "Tự động lật trang")
         case .ptKeyRecorderLabel:
             return ("Sample Key (click & press any key)", "Phím mẫu (click & nhấn phím bất kỳ)")
         case .ptKeyRecorderPlaceholder:
@@ -370,7 +371,7 @@ public enum L10n {
         case .ptKeyListening:
             return ("Press any key...", "Đang chờ nhấn phím...")
         case .overlayShortcutLabel:
-            return ("Region Picker Shortcut (click & press)", "Phím tắt chọn vùng (nhấn để đặt)")
+            return ("Region Shortcut", "Phím tắt vùng chụp")
         case .overlayShortcutPlaceholder:
             return ("Click & press shortcut...", "Nhấn vào đây và bấm tổ hợp phím...")
         case .overlayShortcutTitle:
@@ -378,7 +379,7 @@ public enum L10n {
         case .overlayShortcutListening:
             return ("Press shortcut...", "Hãy bấm tổ hợp phím...")
         case .captureControls:
-            return ("Capture Control", "Điều khiển chụp")
+            return ("Controls", "Điều khiển")
         case .btnCaptureStart:
             return ("Start Capture", "Bắt đầu chụp")
         case .btnCaptureStop:
@@ -407,7 +408,7 @@ public enum L10n {
         case .permUnknown:
             return ("Unknown", "Chưa rõ")
         case .btnCheckPermissions:
-            return ("Check / Request Permissions", "Kiểm tra / Xin quyền macOS")
+            return ("Check", "Kiểm tra")
         case .btnOpenSettings:
             return ("Open", "Mở")
         case .viewCanvas:
@@ -440,9 +441,9 @@ public enum L10n {
         case .afmSummarizeOneTitle:
             return ("Summarize this image into Notes using AI", "Tóm tắt ảnh này vào Ghi chú bằng AI")
         case .settingsAfmSection:
-            return ("On-Device AI Engine (Apple Silicon AFM)", "Bộ xử lý AI trên máy (Apple Silicon AFM)")
+            return ("Apple Intelligence (AFM)", "Apple Intelligence (AFM)")
         case .settingsAfmStatusTitle:
-            return ("Apple Foundation Model Status", "Trạng thái Apple Foundation Model")
+            return ("Apple Foundation Model", "Apple Foundation Model")
         case .settingsAfmStatusDesc:
             return ("Runs locally via Vision OCR + FoundationModels.framework without cloud API keys.", "Chạy cục bộ qua Vision OCR + FoundationModels.framework, không cần API key hay cloud.")
         case .afmStatusChecking:
@@ -475,6 +476,8 @@ public enum L10n {
             return ("Language", "Ngôn ngữ")
         case .settingsThemeLabel:
             return ("Theme", "Giao diện")
+        case .settingsVersionLabel:
+            return ("Version", "Phiên bản")
         case .themeDark:
             return ("Dark", "Tối")
         case .themeLight:

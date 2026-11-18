@@ -5,6 +5,7 @@ import SwiftUI
 
 struct ImagePreviewSheetView: View {
     @Environment(AppViewModel.self) private var viewModel
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var loadedImage: NSImage?
     @State private var keyMonitor: Any?
@@ -24,19 +25,17 @@ struct ImagePreviewSheetView: View {
     }
 
     var body: some View {
-        ZStack {
-            LiquidGlassBackdrop()
-
-            GlassEffectContainer(spacing: 14) {
-                VStack(spacing: 14) {
-                    headerBar
-                    imageStage
-                }
-                .padding(18)
-            }
+        VStack(spacing: 14) {
+            headerBar
+            imageStage
         }
+        .padding(18)
         .frame(minWidth: 820, minHeight: 580)
         .frame(idealWidth: 980, idealHeight: 700)
+        .background {
+            LiquidGlassBackdrop()
+        }
+        .preferredColorScheme(viewModel.preferredColorScheme)
         .task(id: currentFile?.url) {
             await loadImageForCurrentFile()
         }
@@ -169,64 +168,90 @@ struct ImagePreviewSheetView: View {
     }
 
     private var summaryPopoverOverlay: some View {
-        VStack {
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+
+        return VStack {
             HStack {
                 Spacer()
-                GlassCard(padding: 14, tint: .cyan.opacity(0.08)) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.cyan)
-                            Text(viewModel.t(.aiSummaryTitle))
-                                .font(.system(size: 13.5, weight: .semibold))
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.cyan)
+                        Text(viewModel.t(.aiSummaryTitle))
+                            .font(.system(size: 13.5, weight: .semibold))
 
-                            Spacer()
+                        Spacer()
 
-                            GlassPillButton(
-                                viewModel.t(.btnCopy),
-                                systemImage: "doc.on.doc",
-                                variant: .standard,
-                                compact: true,
-                                isDisabled: viewModel.singleImageSummaryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ) {
-                                viewModel.copySingleImageSummary()
-                            }
-
-                            Button {
-                                viewModel.closeSingleImageSummaryPopover()
-                            } label: {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 24, height: 24)
-                                    .contentShape(Circle())
-                            }
-                            .buttonStyle(.plain)
-                            .glassEffect(.regular.interactive(), in: .capsule)
-                            .help(viewModel.t(.btnClose))
+                        GlassPillButton(
+                            viewModel.t(.btnCopy),
+                            systemImage: "doc.on.doc",
+                            variant: .standard,
+                            compact: true,
+                            isDisabled: viewModel.singleImageSummaryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ) {
+                            viewModel.copySingleImageSummary()
                         }
 
-                        if viewModel.isSummarizingSingleImage {
-                            AIStreamingIndicator(label: viewModel.t(.afmSummarizing))
+                        Button {
+                            viewModel.closeSingleImageSummaryPopover()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 24, height: 24)
+                                .contentShape(Circle())
                         }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                        .help(viewModel.t(.btnClose))
+                    }
 
-                        ScrollView {
-                            Text(
-                                viewModel.singleImageSummaryText.isEmpty && viewModel.isSummarizingSingleImage
-                                    ? " "
-                                    : viewModel.singleImageSummaryText
-                            )
-                            .font(.system(size: 13))
-                            .foregroundStyle(.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
-                        }
-                        .frame(maxHeight: 280)
+                    ScrollView {
+                        Text(
+                            viewModel.singleImageSummaryText.isEmpty && viewModel.isSummarizingSingleImage
+                                ? " "
+                                : viewModel.singleImageSummaryText
+                        )
+                        .font(.system(size: 13))
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                        .contentTransition(.interpolate)
+                        .animation(.easeOut(duration: 0.18), value: viewModel.singleImageSummaryText)
+                    }
+                    .scrollIndicators(.hidden)
+                    .scrollTopFade(height: 24)
+                    .frame(maxHeight: 280)
+                }
+                .animation(GlassMetrics.springAnimation, value: viewModel.isSummarizingSingleImage)
+                .padding(14)
+                .frame(width: 380)
+                .background {
+                    ZStack {
+                        shape.fill(.ultraThickMaterial)
+                        shape.fill(
+                            colorScheme == .dark
+                                ? Color(red: 0.07, green: 0.075, blue: 0.09).opacity(0.92)
+                                : Color(red: 0.97, green: 0.975, blue: 0.985).opacity(0.94)
+                        )
                     }
                 }
-                .frame(width: 380)
-                .shadow(color: .black.opacity(0.24), radius: 22, y: 8)
+                .overlay {
+                    shape.strokeBorder(
+                        Color.white.opacity(colorScheme == .dark ? 0.18 : 0.75),
+                        lineWidth: 1
+                    )
+                }
+                .appleIntelligenceGlowBorder(
+                    isActive: viewModel.isSummarizingSingleImage,
+                    cornerRadius: 18
+                )
+                .shadow(
+                    color: .black.opacity(colorScheme == .dark ? 0.55 : 0.22),
+                    radius: 24,
+                    y: 10
+                )
             }
             Spacer()
         }
@@ -255,11 +280,14 @@ struct ImagePreviewSheetView: View {
     private func installKeyMonitor() {
         removeKeyMonitor()
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let noNavModifiers = event.modifierFlags.intersection([.command, .option, .control]).isEmpty
             switch event.keyCode {
             case 123, 126: // Left Arrow, Up Arrow
+                guard noNavModifiers else { return event }
                 viewModel.navigatePreview(by: -1)
                 return nil
             case 124, 125: // Right Arrow, Down Arrow
+                guard noNavModifiers else { return event }
                 viewModel.navigatePreview(by: 1)
                 return nil
             case 53: // Escape
@@ -283,84 +311,169 @@ struct ImagePreviewSheetView: View {
     }
 }
 
-// MARK: - Rename Confirmation Sheet
+// MARK: - Rename Confirmation Modal
 
 struct ConfirmRenameSheetView: View {
     @Environment(AppViewModel.self) private var viewModel
+    @Environment(\.colorScheme) private var colorScheme
+
+    @State private var keyMonitor: Any?
 
     private var count: Int {
         viewModel.pendingRenameRange?.count ?? 0
     }
 
     var body: some View {
-        ZStack {
-            LiquidGlassBackdrop()
+        let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+        let previewShape = RoundedRectangle(cornerRadius: 14, style: .continuous)
 
-            GlassEffectContainer(spacing: 16) {
-                VStack(spacing: 18) {
-                    HStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.accentColor.opacity(0.18))
-                                .frame(width: 40, height: 40)
-                            Image(systemName: "pencil.and.outline")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(Color.accentColor)
-                        }
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(viewModel.t(.confirmRename))
-                                .font(.system(size: 16, weight: .semibold))
-                            Text(viewModel.t(.confirmRenameCount, ["count": "\(count)"]))
-                                .font(.system(size: 13))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-                    }
-
-                    GlassCard(padding: 14) {
-                        VStack(spacing: 10) {
-                            renamePreviewRow(
-                                label: viewModel.t(.firstFile),
-                                oldName: viewModel.pendingFirstOld,
-                                newName: viewModel.pendingFirstNew
-                            )
-
-                            Divider().opacity(0.45)
-
-                            renamePreviewRow(
-                                label: viewModel.t(.lastFile),
-                                oldName: viewModel.pendingLastOld,
-                                newName: viewModel.pendingLastNew
-                            )
-                        }
-                    }
-
-                    HStack(spacing: 10) {
-                        Spacer()
-
-                        GlassPillButton(
-                            viewModel.t(.cancelBtn),
-                            variant: .standard
-                        ) {
-                            viewModel.cancelRename()
-                        }
-
-                        GlassPillButton(
-                            viewModel.t(.agreeRename),
-                            systemImage: "checkmark",
-                            variant: .primary
-                        ) {
-                            viewModel.executeRename()
-                        }
-                    }
+        VStack(spacing: 16) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.18))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: "pencil.and.outline")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
                 }
-                .padding(22)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(viewModel.t(.confirmRename))
+                        .font(.system(size: 15.5, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(viewModel.t(.confirmRenameCount, ["count": "\(count)"]))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button {
+                    viewModel.cancelRename()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 26, height: 26)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: .capsule)
+                .help(viewModel.t(.btnClose))
+            }
+
+            VStack(spacing: 10) {
+                renamePreviewRow(
+                    label: viewModel.t(.firstFile),
+                    oldName: viewModel.pendingFirstOld,
+                    newName: viewModel.pendingFirstNew
+                )
+
+                Divider()
+                    .opacity(colorScheme == .dark ? 0.35 : 0.55)
+
+                renamePreviewRow(
+                    label: viewModel.t(.lastFile),
+                    oldName: viewModel.pendingLastOld,
+                    newName: viewModel.pendingLastNew
+                )
+            }
+            .padding(14)
+            .background {
+                previewShape.fill(
+                    colorScheme == .dark
+                        ? Color.white.opacity(0.055)
+                        : Color.black.opacity(0.035)
+                )
+            }
+            .overlay {
+                previewShape.strokeBorder(
+                    colorScheme == .dark
+                        ? Color.white.opacity(0.10)
+                        : Color.black.opacity(0.08),
+                    lineWidth: 1
+                )
+            }
+
+            HStack(spacing: 10) {
+                Spacer()
+
+                GlassPillButton(
+                    viewModel.t(.cancelBtn),
+                    variant: .standard
+                ) {
+                    viewModel.cancelRename()
+                }
+
+                GlassPillButton(
+                    viewModel.t(.agreeRename),
+                    systemImage: "checkmark",
+                    variant: .primary
+                ) {
+                    viewModel.executeRename()
+                }
             }
         }
-        .frame(width: 490)
+        .padding(20)
+        .frame(width: 440)
         .fixedSize(horizontal: false, vertical: true)
+        .background {
+            ZStack {
+                shape.fill(.ultraThickMaterial)
+                shape.fill(
+                    colorScheme == .dark
+                        ? Color(red: 0.08, green: 0.085, blue: 0.10).opacity(0.95)
+                        : Color(red: 0.97, green: 0.975, blue: 0.985).opacity(0.96)
+                )
+            }
+            .contentShape(shape)
+            .onTapGesture {}
+        }
+        .overlay {
+            shape.strokeBorder(
+                Color.white.opacity(colorScheme == .dark ? 0.18 : 0.75),
+                lineWidth: 1
+            )
+        }
+        .shadow(
+            color: .black.opacity(colorScheme == .dark ? 0.55 : 0.22),
+            radius: 26,
+            y: 12
+        )
+        .onAppear {
+            installKeyMonitor()
+        }
+        .onDisappear {
+            removeKeyMonitor()
+        }
+    }
+
+    private func installKeyMonitor() {
+        removeKeyMonitor()
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            switch event.keyCode {
+            case 53: // Escape
+                viewModel.cancelRename()
+                return nil
+            case 36, 76: // Return, Numpad Enter
+                guard event.modifierFlags.intersection([.command, .option, .control]).isEmpty,
+                      !viewModel.isRenaming else {
+                    return event
+                }
+                viewModel.executeRename()
+                return nil
+            default:
+                return event
+            }
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let monitor = keyMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyMonitor = nil
+        }
     }
 
     private func renamePreviewRow(label: String, oldName: String, newName: String) -> some View {
@@ -379,14 +492,17 @@ struct ConfirmRenameSheetView: View {
                 Image(systemName: "arrow.right")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(Color.accentColor)
+                    .layoutPriority(1)
 
                 Text(newName)
                     .font(.system(size: 12.5, weight: .semibold, design: .rounded))
                     .monospacedDigit()
+                    .lineLimit(1)
                     .foregroundStyle(Color.accentColor)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(Capsule().fill(Color.accentColor.opacity(0.14)))
+                    .layoutPriority(1)
 
                 Spacer(minLength: 0)
             }

@@ -49,7 +49,7 @@ struct LiquidGlassBackdrop: View {
 
     private var darkBackdrop: some View {
         ZStack {
-            Color(red: 0.045, green: 0.058, blue: 0.105)
+            Color(red: 0.02, green: 0.02, blue: 0.025)
 
             MeshGradient(
                 width: 3,
@@ -60,29 +60,29 @@ struct LiquidGlassBackdrop: View {
                     SIMD2(0.0, 1.0), SIMD2(0.5, 1.0), SIMD2(1.0, 1.0),
                 ],
                 colors: [
-                    Color(red: 0.075, green: 0.105, blue: 0.235),
-                    Color(red: 0.055, green: 0.145, blue: 0.285),
-                    Color(red: 0.065, green: 0.215, blue: 0.305),
+                    Color(red: 0.028, green: 0.028, blue: 0.030),
+                    Color(red: 0.044, green: 0.044, blue: 0.047),
+                    Color(red: 0.066, green: 0.066, blue: 0.070),
 
-                    Color(red: 0.095, green: 0.085, blue: 0.220),
-                    Color(red: 0.065, green: 0.155, blue: 0.275),
-                    Color(red: 0.050, green: 0.130, blue: 0.235),
+                    Color(red: 0.036, green: 0.036, blue: 0.038),
+                    Color(red: 0.072, green: 0.072, blue: 0.075),
+                    Color(red: 0.048, green: 0.048, blue: 0.051),
 
-                    Color(red: 0.045, green: 0.065, blue: 0.135),
-                    Color(red: 0.055, green: 0.095, blue: 0.185),
-                    Color(red: 0.075, green: 0.075, blue: 0.185),
+                    Color(red: 0.025, green: 0.025, blue: 0.027),
+                    Color(red: 0.038, green: 0.038, blue: 0.040),
+                    Color(red: 0.056, green: 0.056, blue: 0.059),
                 ]
             )
             .opacity(0.92)
 
             Circle()
-                .fill(Color.cyan.opacity(0.14))
+                .fill(Color.white.opacity(0.035))
                 .frame(width: 560, height: 560)
                 .blur(radius: 130)
                 .offset(x: 340, y: -220)
 
             Circle()
-                .fill(Color.indigo.opacity(0.18))
+                .fill(Color.white.opacity(0.025))
                 .frame(width: 620, height: 620)
                 .blur(radius: 150)
                 .offset(x: -360, y: 240)
@@ -154,6 +154,7 @@ struct GlassPanel<Content: View>: View {
 }
 
 struct GlassCard<Content: View>: View {
+    @Environment(\.colorScheme) private var colorScheme
     private let padding: CGFloat
     private let tint: Color?
     private let content: Content
@@ -165,13 +166,77 @@ struct GlassCard<Content: View>: View {
     }
 
     var body: some View {
-        let glass: Glass = tint.map { .regular.tint($0) } ?? .regular
+        let shape = RoundedRectangle(cornerRadius: GlassMetrics.cardCornerRadius, style: .continuous)
         content
             .padding(padding)
-            .glassEffect(
-                glass,
-                in: .rect(cornerRadius: GlassMetrics.cardCornerRadius, style: .continuous)
+            .background {
+                ZStack {
+                    shape.fill(
+                        colorScheme == .dark
+                            ? Color.white.opacity(0.055)
+                            : Color.white.opacity(0.68)
+                    )
+                    if let tint {
+                        shape.fill(tint.opacity(0.10))
+                    }
+                }
+            }
+            .overlay {
+                shape.strokeBorder(
+                    Color.white.opacity(colorScheme == .dark ? 0.12 : 0.65),
+                    lineWidth: 1
+                )
+            }
+            .shadow(
+                color: .black.opacity(colorScheme == .dark ? 0.28 : 0.06),
+                radius: 10,
+                y: 4
             )
+    }
+}
+
+// MARK: - Top & Bottom Scroll Fade Mask
+
+struct ScrollTopFadeModifier: ViewModifier {
+    let height: CGFloat
+    @State private var scrollEdgeOffsets: CGPoint = .zero
+
+    func body(content: Content) -> some View {
+        let topOpacity = scrollEdgeOffsets.x <= 1 ? 1.0 : max(0, 1 - Double(scrollEdgeOffsets.x) / 22.0)
+        let bottomOpacity = scrollEdgeOffsets.y <= 1 ? 1.0 : max(0, 1 - Double(scrollEdgeOffsets.y) / 22.0)
+
+        content
+            .onScrollGeometryChange(for: CGPoint.self) { geo in
+                let top = max(0, geo.contentOffset.y + geo.contentInsets.top)
+                let bottom = max(0, geo.contentSize.height - (geo.contentOffset.y + geo.containerSize.height))
+                return CGPoint(x: min(top, 28), y: min(bottom, 28))
+            } action: { _, newVal in
+                if scrollEdgeOffsets != newVal {
+                    scrollEdgeOffsets = newVal
+                }
+            }
+            .mask {
+                GeometryReader { geo in
+                    let totalHeight = max(1, geo.size.height)
+                    let fadeStop = min(0.45, max(0.001, height / totalHeight))
+                    LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(topOpacity), location: 0),
+                            .init(color: .black, location: fadeStop),
+                            .init(color: .black, location: max(fadeStop, 1 - fadeStop)),
+                            .init(color: .black.opacity(bottomOpacity), location: 1),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+            }
+    }
+}
+
+extension View {
+    func scrollTopFade(height: CGFloat = 36) -> some View {
+        modifier(ScrollTopFadeModifier(height: height))
     }
 }
 
@@ -393,52 +458,123 @@ struct PulsingStatusDot: View {
     }
 }
 
-// MARK: - Animated Streaming Shimmer Indicator
+// MARK: - Apple Intelligence Palette, Streaming Indicator & Glow Border
+
+private enum AppleIntelligencePalette {
+    static let indigo = Color(red: 0x5e / 255.0, green: 0x5c / 255.0, blue: 0xe6 / 255.0) // #5e5ce6
+    static let purple = Color(red: 0xbf / 255.0, green: 0x5a / 255.0, blue: 0xf2 / 255.0) // #bf5af2
+    static let pink   = Color(red: 0xff / 255.0, green: 0x37 / 255.0, blue: 0x5f / 255.0) // #ff375f
+    static let orange = Color(red: 0xff / 255.0, green: 0x9f / 255.0, blue: 0x0a / 255.0) // #ff9f0a
+    static let green  = Color(red: 0x30 / 255.0, green: 0xd1 / 255.0, blue: 0x58 / 255.0) // #30d158
+    static let cyan   = Color(red: 0x64 / 255.0, green: 0xd2 / 255.0, blue: 0xff / 255.0) // #64d2ff
+
+    static let shimmerColors: [Color] = [
+        .clear, indigo, purple, cyan, .clear
+    ]
+
+    static let glowColors: [Color] = [
+        indigo, purple, pink, orange, green, cyan, indigo
+    ]
+}
 
 struct AIStreamingIndicator: View {
     let label: String
-    @State private var phase: CGFloat = -0.6
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.cyan)
-                .symbolEffect(.pulse, isActive: true)
+        TimelineView(.animation) { timeline in
+            let progress = (timeline.date.timeIntervalSinceReferenceDate / 1.1)
+                .truncatingRemainder(dividingBy: 1.0)
+            let iconOpacity = 0.65 + 0.35 * (0.5 + 0.5 * sin(progress * .pi * 2))
 
-            Text(label)
-                .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                AppleIntelligencePalette.indigo,
+                                AppleIntelligencePalette.purple,
+                                AppleIntelligencePalette.cyan,
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .opacity(iconOpacity)
 
-            Spacer()
+                Text(label)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(.secondary)
 
-            Capsule()
-                .fill(Color.primary.opacity(0.08))
-                .frame(width: 72, height: 4)
-                .overlay(alignment: .leading) {
-                    GeometryReader { geo in
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.clear, .cyan, .accentColor, .clear],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
+                Spacer()
+
+                Capsule()
+                    .fill(Color.primary.opacity(0.08))
+                    .frame(width: 72, height: 4)
+                    .overlay(alignment: .leading) {
+                        GeometryReader { geo in
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: AppleIntelligencePalette.shimmerColors,
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
                                 )
-                            )
-                            .frame(width: geo.size.width * 0.55)
-                            .offset(x: phase * geo.size.width)
-                            .onAppear {
-                                withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
-                                    phase = 1.1
-                                }
-                            }
+                                .frame(width: geo.size.width * 0.55)
+                                .offset(x: (progress * 1.7 - 0.6) * geo.size.width)
+                        }
+                        .clipShape(Capsule())
                     }
-                    .clipShape(Capsule())
-                }
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .glassInputSurface(isHighlighted: true, cornerRadius: 10)
+    }
+}
+
+struct AppleIntelligenceGlowBorderModifier: ViewModifier {
+    let isActive: Bool
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        content
+            .overlay {
+                Group {
+                    if isActive {
+                        TimelineView(.animation) { timeline in
+                            let t = timeline.date.timeIntervalSinceReferenceDate
+                            let gradient = AngularGradient(
+                                gradient: Gradient(colors: AppleIntelligencePalette.glowColors),
+                                center: .center,
+                                angle: .degrees((t * 110).truncatingRemainder(dividingBy: 360))
+                            )
+
+                            ZStack {
+                                shape
+                                    .stroke(gradient, lineWidth: 5)
+                                    .blur(radius: 6)
+                                    .opacity(0.45)
+
+                                shape
+                                    .strokeBorder(gradient, lineWidth: 2)
+                            }
+                        }
+                        .transition(.opacity)
+                    }
+                }
+                .allowsHitTesting(false)
+                .animation(.easeInOut(duration: 0.25), value: isActive)
+            }
+    }
+}
+
+extension View {
+    func appleIntelligenceGlowBorder(isActive: Bool, cornerRadius: CGFloat) -> some View {
+        modifier(AppleIntelligenceGlowBorderModifier(isActive: isActive, cornerRadius: cornerRadius))
     }
 }
 
@@ -454,6 +590,7 @@ struct ResizableHorizontalSplit<Sidebar: View, Detail: View>: View {
 
     @State private var dragStartWidth: CGFloat?
     @State private var isHoveringDivider = false
+    @State private var isResizeCursorPushed = false
 
     init(
         sidebarWidth: Binding<CGFloat>,
@@ -510,19 +647,13 @@ struct ResizableHorizontalSplit<Sidebar: View, Detail: View>: View {
                 .animation(.easeOut(duration: 0.15), value: isHoveringDivider)
         }
         .onHover { hovering in
-            if hovering && !isHoveringDivider {
-                isHoveringDivider = true
-                NSCursor.resizeLeftRight.push()
-            } else if !hovering && isHoveringDivider {
-                isHoveringDivider = false
-                NSCursor.pop()
-            }
+            isHoveringDivider = hovering
+            updateResizeCursor()
         }
         .onDisappear {
-            if isHoveringDivider {
-                isHoveringDivider = false
-                NSCursor.pop()
-            }
+            isHoveringDivider = false
+            dragStartWidth = nil
+            updateResizeCursor()
         }
         .gesture(
             DragGesture(minimumDistance: 1, coordinateSpace: .global)
@@ -530,14 +661,27 @@ struct ResizableHorizontalSplit<Sidebar: View, Detail: View>: View {
                     if dragStartWidth == nil {
                         dragStartWidth = currentWidth
                     }
+                    updateResizeCursor()
                     let start = dragStartWidth ?? currentWidth
                     let proposed = start + value.translation.width
                     sidebarWidth = min(max(proposed, minSidebarWidth), effectiveMax)
                 }
                 .onEnded { _ in
                     dragStartWidth = nil
+                    updateResizeCursor()
                 }
         )
+    }
+
+    private func updateResizeCursor() {
+        let wantsCursor = isHoveringDivider || dragStartWidth != nil
+        if wantsCursor && !isResizeCursorPushed {
+            NSCursor.resizeLeftRight.push()
+            isResizeCursorPushed = true
+        } else if !wantsCursor && isResizeCursorPushed {
+            NSCursor.pop()
+            isResizeCursorPushed = false
+        }
     }
 }
 
@@ -575,33 +719,45 @@ struct ToastMessage: Identifiable, Equatable, Sendable {
 }
 
 struct ToastOverlayView: View {
+    @Environment(\.colorScheme) private var colorScheme
     let toast: ToastMessage?
+    var topPadding: CGFloat = 6
     let onDismiss: () -> Void
 
     var body: some View {
         VStack {
-            Spacer()
             if let toast {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     Image(systemName: toast.type.systemImage)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(toast.type.tintColor)
 
                     Text(toast.text)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 12.5, weight: .semibold))
                         .foregroundStyle(.primary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .glassEffect(.regular.tint(toast.type.tintColor.opacity(0.14)), in: .capsule)
-                .shadow(color: .black.opacity(0.16), radius: 16, y: 6)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7.5)
+                .background {
+                    Capsule()
+                        .fill(colorScheme == .dark ? Color.white.opacity(0.10) : Color.white.opacity(0.88))
+                        .overlay {
+                            Capsule()
+                                .strokeBorder(toast.type.tintColor.opacity(0.35), lineWidth: 1)
+                        }
+                }
+                .glassEffect(.regular.tint(toast.type.tintColor.opacity(0.14)).interactive(), in: .capsule)
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.38 : 0.12), radius: 14, y: 5)
                 .onTapGesture(perform: onDismiss)
-                .transition(.move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.94)))
-                .padding(.bottom, 18)
+                .frame(maxWidth: 420)
+                .transition(.move(edge: .top).combined(with: .opacity).combined(with: .scale(scale: 0.92, anchor: .top)))
+                .padding(.top, topPadding)
             }
+            Spacer(minLength: 0)
         }
+        .ignoresSafeArea(.container, edges: .top)
         .animation(GlassMetrics.springAnimation, value: toast)
         .allowsHitTesting(toast != nil)
     }
@@ -765,6 +921,11 @@ final class AppViewModel {
             activeTab = resolvedTab
         }
 
+        if resolvedTab != previousTab {
+            cancelRename()
+            closePreview()
+        }
+
         if resolvedTab == .indexing && previousTab == .capture {
             let capFolder = config.saveFolder.trimmingCharacters(in: .whitespacesAndNewlines)
             if !capFolder.isEmpty {
@@ -817,12 +978,21 @@ final class AppViewModel {
     }
 
     func updateConfig(showToastOnSave: Bool = false, _ mutate: (inout AppConfig) -> Void) {
+        let wasAutoCaptureEnabled = config.autoCaptureEnabled
         mutate(&config)
         saveConfig(showToastOnSave: showToastOnSave)
-        if !config.autoCaptureEnabled && activeTab == .capture {
-            withAnimation(GlassMetrics.springAnimation) {
-                activeTab = .indexing
+        if !config.autoCaptureEnabled {
+            GlobalHotkeyService.shared.stop()
+            if captureController.status.running {
+                captureController.stop()
             }
+            if activeTab == .capture {
+                withAnimation(GlassMetrics.springAnimation) {
+                    activeTab = .indexing
+                }
+            }
+        } else if !wasAutoCaptureEnabled && !isRecordingOverlayShortcut {
+            armGlobalOverlayHotkey()
         }
     }
 
@@ -897,7 +1067,26 @@ final class AppViewModel {
         scanFolder(showToastOnSuccess: false)
     }
 
+    func clearIndexingFolder() {
+        indexingFolder = ""
+        files = []
+        rangeStartText = ""
+        rangeEndText = ""
+        indexingStatusText = ""
+        indexingStatusIsError = false
+        cancelRename()
+        closePreview()
+    }
+
+    private func closePreviewIfOutOfBounds() {
+        if let idx = previewImageIndex, !files.indices.contains(idx) {
+            closePreview()
+        }
+    }
+
     func scanFolder(showToastOnSuccess: Bool = false) {
+        cancelRename()
+
         let trimmed = indexingFolder.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             showToast(t(.toastEnterFolder), type: .warning)
@@ -928,6 +1117,7 @@ final class AppViewModel {
             }
 
             files = scanned
+            closePreviewIfOutOfBounds()
             indexingStatusIsError = false
             indexingStatusText = t(.statusFileCount, ["count": "\(scanned.count)"])
 
@@ -936,6 +1126,7 @@ final class AppViewModel {
             }
         } catch let error as FileIndexingError {
             files = []
+            closePreviewIfOutOfBounds()
             indexingStatusIsError = true
             switch error {
             case .folderNotExist:
@@ -951,6 +1142,7 @@ final class AppViewModel {
             }
         } catch {
             files = []
+            closePreviewIfOutOfBounds()
             indexingStatusIsError = true
             indexingStatusText = t(.toastScanError)
             showToast(t(.toastScanError), type: .error)
@@ -999,6 +1191,25 @@ final class AppViewModel {
         }
         let count = min(files.count, end - start + 1)
         return (start: start, end: end, count: count)
+    }
+
+    func syncLivePreviewRange() {
+        guard !files.isEmpty else { return }
+        let startTrimmed = rangeStartText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let endTrimmed = rangeEndText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let start = Int(startTrimmed),
+           let end = Int(endTrimmed),
+           start >= 0,
+           start <= end,
+           let updated = try? FileIndexingService.applyPreviewNames(to: files, start: start, end: end) {
+            files = updated
+        } else {
+            files = files.map { item in
+                var copy = item
+                copy.previewNewName = nil
+                return copy
+            }
+        }
     }
 
     func previewRename() {
@@ -1051,6 +1262,14 @@ final class AppViewModel {
             indexingStatusText = msg
             previewImageIndex = nil
             files = (try? FileIndexingService.scanFolder(at: indexingFolder)) ?? []
+            if !files.isEmpty {
+                rangeStartText = "1"
+                rangeEndText = "\(files.count)"
+                files = (try? FileIndexingService.applyPreviewNames(to: files, start: 1, end: files.count)) ?? files
+            } else {
+                rangeStartText = ""
+                rangeEndText = ""
+            }
         } catch let error as FileIndexingError {
             let msg: String
             switch error {
@@ -1098,12 +1317,18 @@ final class AppViewModel {
 
     func summarizeAllNotesWithAFM() {
         guard !files.isEmpty else {
-            showToast(t(.toastAfmNoFiles), type: .warning)
+            indexingStatusIsError = true
+            indexingStatusText = t(.toastAfmNoFiles)
             return
         }
 
         afmNotesTask?.cancel()
         notesSaveTask?.cancel()
+
+        if indexingStatusIsError {
+            indexingStatusIsError = false
+            indexingStatusText = ""
+        }
 
         if !config.notesEnabled {
             updateConfig { $0.notesEnabled = true }
@@ -1130,27 +1355,31 @@ final class AppViewModel {
                 }
                 self.config.notesText = prefix + result.summary
                 self.saveConfig(showToastOnSave: false)
-                self.showToast(
-                    self.t(.afmSummarizeSuccess, ["count": "\(result.processedCount)"]),
-                    type: .success
-                )
+                self.indexingStatusIsError = false
             } catch is CancellationError {
                 // Cancelled cleanly
             } catch let error as AFMSummarizerError {
                 self.handleAFMError(error)
             } catch {
-                self.showToast(self.t(.toastAfmError), type: .error)
+                self.indexingStatusIsError = true
+                self.indexingStatusText = self.t(.toastAfmError)
             }
         }
     }
 
     func summarizeCurrentImageWithAFM() {
         guard let idx = previewImageIndex, files.indices.contains(idx) else {
-            showToast(t(.toastAfmNoFiles), type: .warning)
+            indexingStatusIsError = true
+            indexingStatusText = t(.toastAfmNoFiles)
             return
         }
 
         afmSingleImageTask?.cancel()
+        if indexingStatusIsError {
+            indexingStatusIsError = false
+            indexingStatusText = ""
+        }
+
         let targetURL = files[idx].url
         let lang = config.language
 
@@ -1172,6 +1401,7 @@ final class AppViewModel {
                     self?.singleImageSummaryText = partial
                 }
                 self.singleImageSummaryText = result.summary
+                self.indexingStatusIsError = false
             } catch is CancellationError {
                 // Cancelled cleanly
             } catch let error as AFMSummarizerError {
@@ -1179,20 +1409,22 @@ final class AppViewModel {
                 self.handleAFMError(error)
             } catch {
                 self.showSingleImageSummaryPopover = false
-                self.showToast(self.t(.toastAfmError), type: .error)
+                self.indexingStatusIsError = true
+                self.indexingStatusText = self.t(.toastAfmError)
             }
         }
     }
 
     private func handleAFMError(_ error: AFMSummarizerError) {
+        indexingStatusIsError = true
         switch error {
         case .unavailable:
             refreshAFMStatus()
-            showToast(t(.afmUnavailable), type: .warning, duration: 4.0)
+            indexingStatusText = t(.afmUnavailable)
         case .noValidImages:
-            showToast(t(.toastAfmNoFiles), type: .warning)
+            indexingStatusText = t(.toastAfmNoFiles)
         case .generationFailed(let message):
-            showToast(message.isEmpty ? t(.toastAfmError) : message, type: .error)
+            indexingStatusText = message.isEmpty ? t(.toastAfmError) : message
         }
     }
 
@@ -1201,7 +1433,6 @@ final class AppViewModel {
         guard !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-        showToast(t(.toastCopied), type: .success, duration: 1.8)
     }
 
     func refreshAFMStatus() {
@@ -1286,6 +1517,10 @@ final class AppViewModel {
     }
 
     func armGlobalOverlayHotkey() {
+        guard config.autoCaptureEnabled else {
+            GlobalHotkeyService.shared.stop()
+            return
+        }
         GlobalHotkeyService.shared.start(shortcut: config.overlayShortcut) { [weak self] in
             guard let self else { return }
             Task { @MainActor in

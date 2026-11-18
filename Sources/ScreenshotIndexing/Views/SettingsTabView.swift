@@ -5,18 +5,17 @@ struct SettingsTabView: View {
 
     var body: some View {
         ScrollView {
-            GlassEffectContainer(spacing: GlassMetrics.containerSpacing) {
-                VStack(spacing: 18) {
-                    afmEngineCard
-                    featureTogglesCard
-                    appearanceAndLanguageCard
-                }
-                .frame(maxWidth: 760)
-                .padding(.vertical, 8)
+            VStack(spacing: 18) {
+                afmEngineCard
+                featureTogglesCard
+                appearanceAndLanguageCard
             }
+            .frame(maxWidth: 760)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity)
         }
-        .scrollIndicators(.automatic)
+        .scrollIndicators(.hidden)
+        .scrollTopFade(height: 36)
     }
 
     // MARK: - On-Device AI Engine Card
@@ -38,15 +37,9 @@ struct SettingsTabView: View {
                 )
 
                 HStack(alignment: .center, spacing: 14) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(viewModel.t(.settingsAfmStatusTitle))
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.primary)
-
-                        Text(viewModel.t(.settingsAfmStatusDesc))
-                            .font(.system(size: 12.5))
-                            .foregroundStyle(.secondary)
-                    }
+                    Text(viewModel.t(.settingsAfmStatusTitle))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
 
                     Spacer(minLength: 12)
 
@@ -99,7 +92,6 @@ struct SettingsTabView: View {
                 VStack(spacing: 12) {
                     featureToggleRow(
                         title: viewModel.t(.featAfmTitle),
-                        description: viewModel.t(.featAfmDesc),
                         isOn: afmBinding
                     )
 
@@ -107,7 +99,6 @@ struct SettingsTabView: View {
 
                     featureToggleRow(
                         title: viewModel.t(.featNotesTitle),
-                        description: viewModel.t(.featNotesDesc),
                         isOn: notesBinding
                     )
 
@@ -115,7 +106,6 @@ struct SettingsTabView: View {
 
                     featureToggleRow(
                         title: viewModel.t(.featCaptureTitle),
-                        description: viewModel.t(.featCaptureDesc),
                         isOn: captureBinding
                     )
 
@@ -123,7 +113,6 @@ struct SettingsTabView: View {
 
                     featureToggleRow(
                         title: viewModel.t(.featSoundTitle),
-                        description: viewModel.t(.featSoundDesc),
                         isOn: soundBinding
                     )
                 }
@@ -133,19 +122,12 @@ struct SettingsTabView: View {
 
     private func featureToggleRow(
         title: String,
-        description: String,
         isOn: Binding<Bool>
     ) -> some View {
         HStack(alignment: .center, spacing: 16) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(.primary)
-
-                Text(description)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-            }
+            Text(title)
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(.primary)
 
             Spacer(minLength: 12)
 
@@ -180,12 +162,12 @@ struct SettingsTabView: View {
                             .font(.system(size: 13.5, weight: .semibold))
                         Spacer()
                         Picker("", selection: languageBinding) {
-                            Text("EN — \(viewModel.t(.langEn))").tag(AppLanguage.en)
-                            Text("VI — \(viewModel.t(.langVi))").tag(AppLanguage.vi)
+                            Text("EN").tag(AppLanguage.en)
+                            Text("VI").tag(AppLanguage.vi)
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
-                        .frame(width: 260)
+                        .frame(width: 140)
                     }
 
                     Divider().opacity(0.45)
@@ -202,6 +184,18 @@ struct SettingsTabView: View {
                         .pickerStyle(.segmented)
                         .labelsHidden()
                         .frame(width: 260)
+                    }
+
+                    Divider().opacity(0.45)
+
+                    HStack(spacing: 16) {
+                        Text(viewModel.t(.settingsVersionLabel))
+                            .font(.system(size: 13.5, weight: .semibold))
+                        Spacer()
+                        GlassBadge(
+                            text: "v\(viewModel.appVersionString)",
+                            foreground: .primary
+                        )
                     }
                 }
             }

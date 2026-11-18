@@ -31,17 +31,15 @@ struct AutoCaptureTabView: View {
     @State private var regionBeforeDrag: CaptureRegion?
 
     var body: some View {
-        GlassEffectContainer(spacing: GlassMetrics.containerSpacing) {
-            ResizableHorizontalSplit(
-                sidebarWidth: $sidebarWidth,
-                minSidebarWidth: 360,
-                maxSidebarWidth: 500,
-                minDetailWidth: 460
-            ) {
-                leftControlsColumn
-            } detail: {
-                rightPreviewPanel
-            }
+        ResizableHorizontalSplit(
+            sidebarWidth: $sidebarWidth,
+            minSidebarWidth: 360,
+            maxSidebarWidth: 500,
+            minDetailWidth: 460
+        ) {
+            leftControlsColumn
+        } detail: {
+            rightPreviewPanel
         }
         .onAppear {
             syncDraftsFromConfig()
@@ -49,8 +47,17 @@ struct AutoCaptureTabView: View {
         .onChange(of: viewModel.config) { _, _ in
             syncDraftsFromConfig()
         }
-        .onChange(of: focusedField) { oldField, _ in
+        .onChange(of: focusedField) { oldField, newField in
             commitFieldOnBlur(oldField)
+            if newField != nil {
+                stopAnyKeyRecorder()
+            }
+        }
+        .onChange(of: viewModel.isPickingOverlay) { _, newValue in
+            if newValue {
+                focusedField = nil
+                stopAnyKeyRecorder()
+            }
         }
         .onDisappear {
             stopAnyKeyRecorder()
@@ -60,17 +67,22 @@ struct AutoCaptureTabView: View {
     // MARK: - Left Controls Column
 
     private var leftControlsColumn: some View {
-        ScrollView {
-            VStack(spacing: 14) {
-                saveFolderCard
-                captureRegionCard
-                timerAndShutterCard
-                autoPageTurnCard
-                captureControlAndPermissionsCard
+        GlassPanel(padding: 14) {
+            ScrollView(.vertical) {
+                VStack(spacing: 14) {
+                    saveFolderCard
+                    captureRegionCard
+                    timerAndShutterCard
+                    autoPageTurnCard
+                    captureControlAndPermissionsCard
+                }
+                .padding(.horizontal, 4)
+                .padding(.top, 2)
+                .padding(.bottom, 8)
             }
-            .padding(.bottom, 6)
+            .scrollIndicators(.hidden)
+            .scrollTopFade(height: 36)
         }
-        .scrollIndicators(.automatic)
     }
 
     private var saveFolderCard: some View {
@@ -139,6 +151,7 @@ struct AutoCaptureTabView: View {
                         isLoading: viewModel.isCapturingPreview,
                         isDisabled: !viewModel.permissions.screenRecording
                     ) {
+                        commitAllDrafts()
                         viewModel.takeScreenPreview(delaySec: 0.2)
                     }
 
@@ -150,6 +163,7 @@ struct AutoCaptureTabView: View {
                         isLoading: viewModel.isCapturingPreview,
                         isDisabled: !viewModel.permissions.screenRecording
                     ) {
+                        commitAllDrafts()
                         viewModel.takeScreenPreview(delaySec: 2.0)
                     }
                 }
@@ -160,6 +174,7 @@ struct AutoCaptureTabView: View {
                     variant: .accentCyan,
                     isLoading: viewModel.isPickingOverlay
                 ) {
+                    commitAllDrafts()
                     Task { await viewModel.pickRegionWithOverlay() }
                 }
 
@@ -255,6 +270,12 @@ struct AutoCaptureTabView: View {
                                 .multilineTextAlignment(.trailing)
                                 .frame(width: 32)
                                 .focused($focusedField, equals: .interval)
+                                .onChange(of: intervalText) { _, newValue in
+                                    let trimmed = newValue.trimmingCharacters(in: .whitespaces)
+                                    if let raw = Int(trimmed) {
+                                        viewModel.config.intervalSec = max(1, min(10, raw))
+                                    }
+                                }
                                 .onSubmit { commitIntervalDraft() }
                             Text("s")
                                 .font(.system(size: 11.5, weight: .medium))
@@ -284,6 +305,14 @@ struct AutoCaptureTabView: View {
                         .multilineTextAlignment(.trailing)
                         .frame(width: 72)
                         .focused($focusedField, equals: .maxShots)
+                        .onChange(of: maxShotsText) { _, newValue in
+                            let trimmed = newValue.trimmingCharacters(in: .whitespaces)
+                            if trimmed.isEmpty {
+                                viewModel.config.maxShots = 0
+                            } else if let value = Int(trimmed), value >= 0 {
+                                viewModel.config.maxShots = value
+                            }
+                        }
                         .onSubmit { commitMaxShotsDraft() }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -337,23 +366,17 @@ struct AutoCaptureTabView: View {
                 }
                 .toggleStyle(.switch)
 
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(viewModel.t(.ptKeyRecorderLabel))
-                        .font(.system(size: 11.5, weight: .medium))
-                        .foregroundStyle(.secondary)
-
-                    recorderButton(
-                        displayText: isListeningPageTurnKey
-                            ? viewModel.t(.ptKeyListening)
-                            : InputSimulationService.displayName(for: viewModel.config.pageTurn.keyName),
-                        isListening: isListeningPageTurnKey,
-                        systemImage: "keyboard",
-                        tooltip: viewModel.t(.ptKeyRecorderTitle)
-                    ) {
-                        togglePageTurnKeyRecorder()
-                    }
-                    .disabled(!viewModel.config.pageTurn.enabled)
+                recorderButton(
+                    displayText: isListeningPageTurnKey
+                        ? viewModel.t(.ptKeyListening)
+                        : InputSimulationService.displayName(for: viewModel.config.pageTurn.keyName),
+                    isListening: isListeningPageTurnKey,
+                    systemImage: "keyboard",
+                    tooltip: viewModel.t(.ptKeyRecorderTitle)
+                ) {
+                    togglePageTurnKeyRecorder()
                 }
+                .disabled(!viewModel.config.pageTurn.enabled)
                 .opacity(viewModel.config.pageTurn.enabled ? 1.0 : 0.45)
             }
         }
@@ -379,6 +402,7 @@ struct AutoCaptureTabView: View {
                         variant: .primary,
                         isDisabled: snapshot.running
                     ) {
+                        commitAllDrafts()
                         viewModel.startAutoCapture()
                     }
 
@@ -520,39 +544,35 @@ struct AutoCaptureTabView: View {
             return "\(preview.screenWidth)×\(preview.screenHeight) pt • \(scaleText)"
         }()
 
-        return GlassPanel {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 10) {
+        return GlassPanel(padding: 10) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
                     GlassSectionHeader(
                         title: viewModel.t(.viewCanvas),
                         systemImage: "macwindow"
                     )
-                    Spacer()
-                    GlassBadge(text: scaleBadgeText, foreground: .secondary)
+                    Spacer(minLength: 8)
+                    HStack(spacing: 8) {
+                        GlassBadge(
+                            text: viewModel.t(.canvasCoordSummary, [
+                                "x": "\(reg.x)",
+                                "y": "\(reg.y)",
+                                "w": "\(reg.width)",
+                                "h": "\(reg.height)",
+                            ]),
+                            tint: .accentColor.opacity(0.16),
+                            foreground: .primary
+                        )
+                        GlassBadge(text: scaleBadgeText, foreground: .secondary)
+                    }
                 }
+                .lineLimit(1)
+                .padding(.horizontal, 4)
+                .padding(.top, 2)
 
                 previewStage
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .glassInputSurface(cornerRadius: 16)
-
-                HStack(spacing: 10) {
-                    GlassBadge(
-                        text: viewModel.t(.canvasCoordSummary, [
-                            "x": "\(reg.x)",
-                            "y": "\(reg.y)",
-                            "w": "\(reg.width)",
-                            "h": "\(reg.height)",
-                        ]),
-                        tint: .accentColor.opacity(0.16),
-                        foreground: .primary
-                    )
-
-                    Spacer()
-
-                    Text(viewModel.t(.canvasDragHint))
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(.secondary)
-                }
+                    .glassInputSurface(cornerRadius: 18)
             }
         }
     }
@@ -599,7 +619,7 @@ struct AutoCaptureTabView: View {
                     imageWidth: CGFloat(max(1, preview.imageWidth)),
                     imageHeight: CGFloat(max(1, preview.imageHeight)),
                     in: geo.size,
-                    padding: 14
+                    padding: 4
                 )
                 let overlayRect = regionViewRect(
                     region: viewModel.config.region,
@@ -638,17 +658,9 @@ struct AutoCaptureTabView: View {
                     .font(.system(size: 34, weight: .light))
                     .foregroundStyle(.secondary)
 
-                VStack(spacing: 6) {
-                    Text(viewModel.t(.canvasEmptyTitle))
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.primary)
-
-                    Text(viewModel.t(.canvasEmptyDesc))
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 340)
-                }
+                Text(viewModel.t(.canvasEmptyTitle))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
 
                 GlassPillButton(
                     viewModel.t(.btnTestShotNow),
@@ -657,6 +669,7 @@ struct AutoCaptureTabView: View {
                     compact: true,
                     isLoading: viewModel.isCapturingPreview
                 ) {
+                    commitAllDrafts()
                     viewModel.takeScreenPreview(delaySec: 0.2)
                 }
             }
@@ -791,6 +804,8 @@ struct AutoCaptureTabView: View {
         imageRect: CGRect
     ) {
         if dragStartLogical == nil {
+            focusedField = nil
+            stopAnyKeyRecorder()
             regionBeforeDrag = viewModel.config.region
             dragStartLogical = viewPointToLogical(value.startLocation, preview: preview, imageRect: imageRect)
         }
@@ -802,6 +817,7 @@ struct AutoCaptureTabView: View {
         let w = max(10, abs(current.x - start.x))
         let h = max(10, abs(current.y - start.y))
         viewModel.config.region = CaptureRegion(x: x, y: y, width: w, height: h)
+        syncRegionDraftFields(with: viewModel.config.region)
     }
 
     private func handleCanvasDragEnded(
@@ -822,6 +838,7 @@ struct AutoCaptureTabView: View {
         if dx < 5 || dy < 5 {
             if let previous = regionBeforeDrag {
                 viewModel.config.region = previous
+                syncRegionDraftFields(with: previous)
             }
             return
         }
@@ -834,6 +851,7 @@ struct AutoCaptureTabView: View {
         ).normalized()
 
         viewModel.updateConfig { $0.region = newRegion }
+        syncRegionDraftFields(with: newRegion)
         viewModel.showToast(
             viewModel.t(.toastRegionUpdated, [
                 "x": "\(newRegion.x)",
@@ -847,6 +865,13 @@ struct AutoCaptureTabView: View {
     }
 
     // MARK: - Field Draft Sync
+
+    private func syncRegionDraftFields(with region: CaptureRegion) {
+        regXText = "\(region.x)"
+        regYText = "\(region.y)"
+        regWText = "\(region.width)"
+        regHText = "\(region.height)"
+    }
 
     private func syncDraftsFromConfig() {
         let reg = viewModel.config.region
@@ -873,10 +898,7 @@ struct AutoCaptureTabView: View {
         applyRegionDraftLive()
         let normalized = viewModel.config.region.normalized()
         viewModel.updateConfig { $0.region = normalized }
-        regXText = "\(normalized.x)"
-        regYText = "\(normalized.y)"
-        regWText = "\(normalized.width)"
-        regHText = "\(normalized.height)"
+        syncRegionDraftFields(with: normalized)
     }
 
     private func commitIntervalDraft() {
@@ -891,6 +913,15 @@ struct AutoCaptureTabView: View {
         let value = trimmed.isEmpty ? 0 : max(0, Int(trimmed) ?? viewModel.config.maxShots)
         viewModel.updateConfig { $0.maxShots = value }
         maxShotsText = value > 0 ? "\(value)" : ""
+    }
+
+    private func commitAllDrafts() {
+        commitRegionDraft()
+        commitIntervalDraft()
+        commitMaxShotsDraft()
+        viewModel.saveConfig(showToastOnSave: false)
+        focusedField = nil
+        stopAnyKeyRecorder()
     }
 
     private func commitFieldOnBlur(_ oldField: FocusField?) {
@@ -943,6 +974,10 @@ struct AutoCaptureTabView: View {
         isListeningPageTurnKey = true
 
         recorderMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 { // Escape cancels recording
+                stopAnyKeyRecorder()
+                return nil
+            }
             let meta = InputSimulationService.keyMetadata(from: event)
             stopAnyKeyRecorder()
             viewModel.updatePageTurnKey(keyName: meta.keyName, keyCode: meta.keyCode, display: meta.display)

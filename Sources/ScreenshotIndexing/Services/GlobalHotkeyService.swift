@@ -32,6 +32,11 @@ final class GlobalHotkeyService {
 
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
+            let flags = event.modifierFlags.intersection([.control, .shift, .option, .command])
+            if !flags.contains(.control) && !flags.contains(.option) && !flags.contains(.command),
+               NSApp.keyWindow?.firstResponder is NSText {
+                return event
+            }
             let keyCode = Int(event.keyCode)
             let flagsRaw = event.modifierFlags.rawValue
             if self.processKeyEvent(keyCode: keyCode, modifierFlagsRaw: flagsRaw) {
