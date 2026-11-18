@@ -1,113 +1,66 @@
-# Screenshot Indexing — Native macOS SwiftUI (Apple Silicon)
+# Screenshot Indexing
 
 [![Build & Release macOS App](https://github.com/trietnguyen2611/Screenshot-Indexing/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/trietnguyen2611/Screenshot-Indexing/actions/workflows/build-and-release.yml)
 
-A native **macOS 27 SwiftUI Liquid Glass** application built exclusively for **Apple Silicon (`arm64`)** to chronologically index screenshots, batch-rename files safely, summarize screenshot text on-device with Apple Foundation Models, and automate timed screen region capture with auto page-turning.
+A native **macOS Liquid Glass** utility built for **Apple Silicon (`arm64`)** to organize screenshots chronologically, batch-rename files safely, summarize screenshot content on-device with Apple Intelligence, and automate timed screen region capture with auto page-turning.
 
 ---
 
 ## Requirements
 
 - **Apple Silicon Mac** (`arm64`)
-- **macOS 26.0 / macOS 27** (Tahoe Liquid Glass SDK)
-- **Swift 6.2+** (for building and testing from source)
-- **Apple Intelligence** enabled in System Settings (optional, for on-device AI summarization)
+- **macOS 26.0+** (Liquid Glass UI)
+- **Apple Intelligence** enabled in System Settings *(optional, required only for on-device AI summarization)*
 
 ---
 
-## Main Features
+## Features
 
-- **Chronological Screenshot Indexing** — Scans folders for macOS screenshots in English (`Screenshot ...`) and Vietnamese (`Ảnh màn hình ...` / `anh man hinh ...`, supporting both NFC and NFD Unicode normalization) and sorts them strictly by capture timestamp.
-- **Safe Two-Step Batch Rename** — Set custom `From` and `To` numbering ranges, preview mapped filenames (`1.png`, `2.png`, ...), inspect screenshots in a full-resolution preview sheet with keyboard navigation, and apply collision-safe temporary renames that never overwrite existing files.
-- **Notes & On-Device Apple Foundation Models AI Summarization** — Persistent auto-saved Notes panel paired with Apple `Vision` OCR and streaming on-device `FoundationModels` summarization (for individual images or an entire indexed batch) with zero cloud uploads.
-- **Auto Capture with Liquid Glass Overlay Picker** — Capture fixed logical screen regions on an interval timer with Retina HiDPI coordinate mapping, an interactive screen preview drag canvas, customizable global hotkey (`⌃⇧R` by default), and a full-screen Liquid Glass region picker overlay.
-- **Automated Page-Turn & Shutter Audio** — Automatically turn pages between shots via synthesized keyboard shortcuts (customizable key recorder) or mouse clicks, with optional macOS system shutter sound.
-- **Bilingual & Adaptive Liquid Glass UI** — Instant English / Vietnamese (`EN` / `VI`) localization and System / Light / Dark appearance switching with macOS Liquid Glass surfaces.
+### 1. Screenshot Indexing & Safe Batch Rename
+- **Automatic Chronological Sorting**: Scans any folder for macOS screenshots in English (`Screenshot ...`) and Vietnamese (`Ảnh màn hình ...` / `anh man hinh ...`, supporting both NFC and NFD Unicode) and orders them strictly by capture timestamp.
+- **Numbering Range & Live Preview**: Set custom **From** and **To** numbers and preview every mapped filename (`1.png`, `2.png`, ...) before applying changes.
+- **Two-Step Collision-Safe Rename**: Renames files through temporary names first and skips existing targets so existing files are never accidentally overwritten.
+- **Full-Resolution Image Preview**: Click any row in the file list to inspect the screenshot at full size and navigate between images using keyboard arrow keys (`←` / `→` / `↑` / `↓`).
 
----
+### 2. Notes & On-Device AI Summarization (Apple Foundation Models)
+- **Persistent Notes Workspace**: Built-in notes panel that saves automatically while you review screenshots.
+- **Batch AI Summarize**: Extracts text from indexed screenshots via Apple Vision OCR and streams concise Markdown notes directly into the Notes panel using on-device Apple Foundation Models — **100% offline, no API key or cloud upload required**.
+- **Single-Image AI Summary**: Trigger **AI Summarize Image** inside the preview modal to stream a local summary popup over the current screenshot with one-click copy.
 
-## Build, Test & Run from Source
+### 3. Auto Capture & Screen Region Selection
+- **Interactive Screen Preview**: Capture a test screenshot and drag directly on the preview canvas to define or adjust the capture region (`X`, `Y`, `W`, `H` in logical points with Retina HiDPI support).
+- **Global Hotkey & Overlay Picker**: Press the customizable global shortcut (`⌃⇧R` by default) from **any** foreground app (such as Safari or a PDF reader) to open the full-screen region picker overlay and automatically update Screen Preview.
+- **Timer, Shot Limit & Shutter Sound**: Configure capture interval (`1–10s`), optional shot limit (`0 = ∞`), and optional macOS shutter sound.
+- **Automated Page-Turn**: Automatically advance pages between shots using a recorded keyboard shortcut or mouse click.
 
-```bash
-# Build debug target
-swift build
-
-# Run unit tests
-swift test
-
-# Run the native app directly
-swift run ScreenshotIndexing
-```
-
----
-
-## Build `.app` Bundle & `.dmg` Package
-
-Use the packaging script to compile a release Apple Silicon (`arm64`) binary, generate `Info.plist`, embed `macapp_icon.icns`, strip quarantine attributes, and apply an ad-hoc code signature:
-
-```bash
-APP_VERSION=2.0.0 bash scripts/build_app.sh
-```
-
-This creates `dist/Screenshot Indexing.app`. You can verify the architecture and signature, then optionally wrap it into a distributable `.dmg`:
-
-```bash
-lipo -archs "dist/Screenshot Indexing.app/Contents/MacOS/Screenshot Indexing"
-codesign --verify --deep --strict "dist/Screenshot Indexing.app"
-
-mkdir -p release dmg_root
-cp -R "dist/Screenshot Indexing.app" dmg_root/
-ln -s /Applications dmg_root/Applications
-hdiutil create -volname "Screenshot Indexing" -srcfolder dmg_root -ov -format UDZO "release/Screenshot-Indexing-v2.0.0-macOS-arm64.dmg"
-rm -rf dmg_root
-```
+### 4. Settings & Customization
+- **On-Device AI Status**: View live Apple Foundation Model availability and recheck readiness from the **Settings** tab.
+- **Feature Toggles**: Individually enable or disable **AI Note Summarization**, the **Notes Panel**, the **Auto Capture Tab**, and **macOS Shutter Sound**.
+- **Bilingual & Adaptive Appearance**: Switch instantly between **English (`EN`)** and **Vietnamese (`VI`)**, and choose **System**, **Light**, or **Dark** appearance.
 
 ---
 
-## Project Structure
+## macOS Permissions & Installation
 
-```
-Screenshot-Indexing/
-├── Package.swift                                  # Swift Package Manager manifest (macOS arm64)
-├── Sources/ScreenshotIndexing/
-│   ├── ScreenshotIndexingApp.swift                # @main SwiftUI App & window lifecycle
-│   ├── Models/
-│   │   ├── AppConfig.swift                        # Persistent config model & atomic ConfigStore
-│   │   ├── Localization.swift                     # EN / VI localization keys & strings
-│   │   └── ScreenshotFile.swift                   # Screenshot item model
-│   ├── Services/
-│   │   ├── AFMSummarizerService.swift             # Vision OCR + Apple Foundation Models streaming
-│   │   ├── FileIndexingService.swift              # NFC/NFD scanning, sorting & 2-step safe rename
-│   │   ├── GlobalHotkeyService.swift              # Global & local hotkey monitor
-│   │   ├── InputSimulationService.swift           # CGEvent key/click simulation & window PID matching
-│   │   ├── PermissionsService.swift               # Screen Recording & Accessibility TCC checks
-│   │   ├── ScreenCaptureService.swift             # Screencapture / Quartz capture & timer controller
-│   │   └── ScreenOverlayPickerWindow.swift        # Native Liquid Glass full-screen region picker
-│   └── Views/
-│       ├── LiquidGlassTheme.swift                 # Liquid Glass backdrop, cards, pills & AppViewModel
-│       ├── MainContentView.swift                  # Floating glass pill toolbar & tab router
-│       ├── IndexingTabView.swift                  # Folder browser, numbering range, notes & file list
-│       ├── ImagePreviewSheetView.swift            # Full-size screenshot modal, AI popup & rename confirm
-│       ├── AutoCaptureTabView.swift               # Auto-capture controls, hotkey/key recorders & preview
-│       └── SettingsTabView.swift                  # AFM availability status, feature toggles & theme
-├── Tests/ScreenshotIndexingTests/
-│   └── ScreenshotIndexingTests.swift              # Swift unit tests
-├── scripts/
-│   └── build_app.sh                               # Release arm64 .app bundler & ad-hoc signer
-├── .github/workflows/
-│   └── build-and-release.yml                      # GitHub Actions CI/CD (test, build arm64 .app, DMG, release)
-└── macapp_icon.icns                               # macOS application icon
-```
-
----
-
-## macOS Permissions & Troubleshooting
-
-- **Permissions**: Auto Capture and Screen Preview require **Screen Recording** permission. Automated page-turning and global hotkey capture when another app is focused require **Accessibility** permission (`System Settings -> Privacy & Security`).
-- **Gatekeeper ("App is damaged" on unsigned `.dmg` downloads)**:
-  1. Drag `Screenshot Indexing.app` from the `.dmg` into **Applications**.
-  2. Open **Terminal** and run:
+- **Screen Recording**: Required for **Auto Capture** and **Screen Preview**.
+- **Accessibility**: Required for **Auto Page-Turn** and the **Global Hotkey** when another app is in focus.
+  *(Both can be opened directly from the Permissions section in Auto Capture → `System Settings → Privacy & Security`.)*
+- **Opening the downloaded `.dmg` (unsigned ad-hoc build)**:
+  1. Drag `Screenshot Indexing.app` into **Applications**.
+  2. Run in **Terminal**:
      ```bash
      xattr -cr "/Applications/Screenshot Indexing.app"
      ```
   3. Launch the app normally.
+
+---
+
+## Building from Source (Developers)
+
+Requires **Swift 6.2+** on macOS `arm64`:
+
+```bash
+swift test
+swift run ScreenshotIndexing
+APP_VERSION=2.0.0 bash scripts/build_app.sh
+```
