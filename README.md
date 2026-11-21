@@ -8,7 +8,7 @@ A native **macOS Liquid Glass** utility built for **Apple Silicon (`arm64`)** to
 
 ## Requirements
 
-- **Apple Silicon** (`arm64`)
+- **Apple Silicon Mac** (`arm64`)
 - **macOS 26.0+** (Liquid Glass UI)
 - **Apple Intelligence** enabled in System Settings *(optional, required only for on-device AI summarization)*
 
